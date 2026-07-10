@@ -1,0 +1,16 @@
+:root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+body { margin: 0; padding: 12px; font-size: 13px; }
+h1 { font-size: 15px; margin: 0 0 8px; }
+button { cursor: pointer; padding: 6px 10px; border-radius: 6px; border: 1px solid #8884; background: #8881; }
+button.primary { background: #3367d6; color: #fff; border: none; width: 100%; padding: 10px; font-weight: 600; }
+#status { min-height: 1.2em; color: #888; }
+.group h2 { font-size: 13px; margin: 12px 0 4px; }
+.item { list-style: none; padding: 4px 0; border-bottom: 1px solid #8882; }
+.item label { display: grid; grid-template-columns: auto auto 1fr; gap: 6px; align-items: baseline; }
+.itemAction { font-weight: 600; }
+.itemReason { color: #888; }
+.itemUrl { grid-column: 2 / -1; color: #6a9; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+footer { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+#settings { margin-top: 16px; }
+#settingsForm { display: grid; gap: 8px; margin-top: 8px; }
+ul { margin: 0; padding: 0; }
