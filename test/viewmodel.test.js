@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { summarize, groupByAction, toggleSelection, selectedItems, actionLabel, excludeMember, renameGroup, recolorGroup, itemsForAction } from '../extension/sidepanel/viewmodel.js';
+import { summarize, groupByAction, toggleSelection, selectedItems, actionLabel, excludeMember, renameGroup, recolorGroup, itemsForAction, healthMessage } from '../extension/sidepanel/viewmodel.js';
 
 const items = [
   { itemId: 'a', action: 'closeTab' },
@@ -56,4 +56,11 @@ test('renameGroup and recolorGroup update data immutably', () => {
 test('itemsForAction filters by action', () => {
   const items = [groupItem(), { itemId: 'c', action: 'closeTab' }];
   assert.equal(itemsForAction(items, 'groupTabs').length, 1);
+});
+
+test('healthMessage reports connected vs not', () => {
+  assert.deepEqual(healthMessage({ ready: true, version: '2.1.0' }), { ok: true, text: 'Claude CLI connected (2.1.0)' });
+  const bad = healthMessage({ ready: false, error: 'not found' });
+  assert.equal(bad.ok, false);
+  assert.match(bad.text, /install-host/);
 });

@@ -93,6 +93,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ ok: true, undone: chosen.length });
       } else if (message.cmd === 'getUndo') {
         sendResponse({ ok: true, entries: await getUndoLog() });
+      } else if (message.cmd === 'health') {
+        const client = createNativeClient();
+        try { sendResponse({ ok: true, health: await client.request({ type: 'health' }) }); }
+        catch (err) { sendResponse({ ok: true, health: { ready: false, error: String((err && err.message) || err) } }); }
+        finally { client.disconnect(); }
       } else {
         sendResponse({ ok: false, error: 'unknown command' });
       }

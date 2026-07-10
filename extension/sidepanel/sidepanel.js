@@ -1,7 +1,7 @@
 import { getSettings, setSettings } from '../lib/storage.js';
 import {
   summarize, groupByAction, toggleSelection, selectedItems, actionLabel,
-  excludeMember, renameGroup, recolorGroup,
+  excludeMember, renameGroup, recolorGroup, healthMessage,
 } from './viewmodel.js';
 
 const GROUP_COLORS = ['grey', 'blue', 'red', 'yellow', 'green', 'pink', 'purple', 'cyan', 'orange'];
@@ -178,6 +178,17 @@ $('showUndo').addEventListener('click', async () => {
   };
 });
 
+async function checkHealth() {
+  const res = await send({ cmd: 'health' });
+  const { ok, text } = healthMessage(res && res.health);
+  const el = $('health');
+  el.textContent = text;
+  el.classList.toggle('healthOk', ok);
+  el.classList.toggle('healthBad', !ok);
+  $('run').disabled = !ok;
+  return ok;
+}
+
 async function loadSettings() {
   const s = await getSettings();
   const form = $('settingsForm');
@@ -212,4 +223,9 @@ $('settingsForm').addEventListener('submit', async (e) => {
   setStatus('Settings saved.');
 });
 
-(async () => { await loadSettings(); plan = (await send({ cmd: 'getPlan' })).items || []; renderPlan(); })();
+(async () => {
+  await loadSettings();
+  await checkHealth();
+  plan = (await send({ cmd: 'getPlan' })).items || [];
+  renderPlan();
+})();
