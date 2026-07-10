@@ -26,8 +26,9 @@ none.
 - **sidePanel**: Show the review dashboard where you approve suggested changes.
 - **nativeMessaging**: Communicate with the local helper that runs your AI CLI.
 - **notifications**: Tell you when a scheduled pass finishes and changes are ready/applied.
-- **host_permissions `<all_urls>`**: Check whether bookmarked pages still load (dead-link
-  detection). The extension never reads page contents — it only checks the HTTP status.
+- **optional_host_permissions `<all_urls>`**: Requested at runtime only if you enable
+  dead-link scanning, to check whether bookmarked pages still load. Not granted at install.
+  The extension never reads page contents — it only checks the HTTP status.
 
 ## Privacy
 See PRIVACY.md. Tab titles and URLs (query strings/fragments stripped) are sent to your
