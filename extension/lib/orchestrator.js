@@ -2,13 +2,15 @@ import { collectTabs } from './tab-collector.js';
 import { collectBookmarks } from './bookmark-collector.js';
 import { reconcile } from './activity-tracker.js';
 import { indexById, mapGroupResult, mapStaleResult, mapImportantResult, validatePlanItem } from './plan.js';
-import { findDuplicateBookmarks, findStaleBookmarks, getVisitsMap, checkDeadLinks } from './bookmark-health.js';
+import { findDuplicateBookmarks, findStaleBookmarks, getVisitsMap, checkDeadLinks, recordDeadStrikes } from './bookmark-health.js';
 import { applyItem as defaultApplyItem } from './executor.js';
 import { recordUndo as defaultRecordUndo } from './undo-log.js';
 
 export function partitionForApply(items, settings) {
-  if (settings.automationMode === 'auto') return { autoApply: items, needsReview: [] };
-  return { autoApply: [], needsReview: items };
+  if (settings.automationMode !== 'auto') return { autoApply: [], needsReview: items };
+  const autoApply = items.filter((i) => i.action !== 'deleteBookmark');
+  const needsReview = items.filter((i) => i.action === 'deleteBookmark');
+  return { autoApply, needsReview };
 }
 
 // What we actually send to the native host: a minimal, explicit projection so
@@ -51,7 +53,12 @@ export async function buildPlan(deps) {
     const visits = await getVisitsMap(bookmarks, chromeApi);
     items.push(...findDuplicateBookmarks(bookmarks));
     items.push(...findStaleBookmarks(bookmarks, visits, settings.staleBookmarkDays, now));
-    items.push(...await checkDeadLinks(bookmarks, {}));
+    const deadCandidates = await checkDeadLinks(bookmarks, {});
+    const prevStrikes = (await chromeApi.storage.local.get('deadStrikes')).deadStrikes || {};
+    const { strikes, confirmed } = recordDeadStrikes(prevStrikes, deadCandidates.map((d) => d.data.bookmarkId));
+    await chromeApi.storage.local.set({ deadStrikes: strikes });
+    const confirmedSet = new Set(confirmed);
+    items.push(...deadCandidates.filter((d) => confirmedSet.has(d.data.bookmarkId)));
   }
 
   return items.filter(validatePlanItem);

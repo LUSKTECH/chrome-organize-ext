@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { findDuplicateBookmarks, findStaleBookmarks, getVisitsMap } from '../extension/lib/bookmark-health.js';
-import { checkDeadLinks } from '../extension/lib/bookmark-health.js';
+import { checkDeadLinks, recordDeadStrikes } from '../extension/lib/bookmark-health.js';
 
 const DAY = 86400000;
 
@@ -64,4 +64,12 @@ test('checkDeadLinks flags 404 and connection errors, spares timeouts and 200', 
   const items = await checkDeadLinks(bms, { fetchFn, concurrency: 2 });
   const ids = items.map((i) => i.data.bookmarkId).sort();
   assert.deepEqual(ids, ['2', '3']); // 404 + connection error; slow(200-ish timeout) and non-http skipped
+});
+
+test('recordDeadStrikes confirms only on the second consecutive failure', () => {
+  let { strikes, confirmed } = recordDeadStrikes({}, ['b1', 'b2']);
+  assert.deepEqual(confirmed, []);            // first strike, none confirmed
+  ({ strikes, confirmed } = recordDeadStrikes(strikes, ['b1']));
+  assert.deepEqual(confirmed, ['b1']);        // b1 failed twice
+  assert.equal(strikes.b2, undefined);        // b2 recovered -> strike cleared
 });

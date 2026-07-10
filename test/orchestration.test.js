@@ -55,3 +55,10 @@ test('buildPlan reconciles activity and persists it (drops closed tabs)', async 
   assert.ok(!stored.tabActivity['999'], 'closed tab entry pruned');
   assert.ok(stored.tabActivity['1'], 'open tab kept');
 });
+
+test('deleteBookmark is never auto-applied, even in auto mode', () => {
+  const items = [{ itemId: 'g', action: 'groupTabs' }, { itemId: 'd', action: 'deleteBookmark' }];
+  const r = partitionForApply(items, { automationMode: 'auto' });
+  assert.deepEqual(r.autoApply.map((i) => i.itemId), ['g']);
+  assert.deepEqual(r.needsReview.map((i) => i.itemId), ['d']);
+});

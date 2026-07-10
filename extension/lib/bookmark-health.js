@@ -55,6 +55,19 @@ async function isDead(url, fetchFn, timeoutMs) {
   }
 }
 
+// Increment a strike for each currently-dead id; clear strikes for ids that
+// recovered (not in deadIds). Confirm deletion only at >=2 strikes.
+export function recordDeadStrikes(prevStrikes, deadIds) {
+  const strikes = {};
+  const confirmed = [];
+  for (const id of deadIds) {
+    strikes[id] = (prevStrikes[id] || 0) + 1;
+    if (strikes[id] >= 2) confirmed.push(id);
+  }
+  // ids in prevStrikes that recovered are simply dropped (strike reset).
+  return { strikes, confirmed };
+}
+
 export async function checkDeadLinks(bookmarks, deps = {}) {
   const fetchFn = deps.fetchFn || ((url, opts) => fetch(url, opts));
   const timeoutMs = deps.timeoutMs ?? 8000;
