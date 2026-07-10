@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { findDuplicateBookmarks, findStaleBookmarks, getVisitsMap } from '../extension/lib/bookmark-health.js';
+import { checkDeadLinks } from '../extension/lib/bookmark-health.js';
 
 const DAY = 86400000;
 
@@ -35,4 +36,24 @@ test('getVisitsMap records the most recent visit per url', async () => {
   const map = await getVisitsMap([{ url: 'https://a.com' }, { url: 'https://none.com' }], chromeApi);
   assert.equal(map.get('https://a.com'), 40);
   assert.equal(map.has('https://none.com'), false);
+});
+
+test('checkDeadLinks flags 404 and connection errors, spares timeouts and 200', async () => {
+  const bms = [
+    { id: '1', url: 'https://ok.com', parentId: '1', index: 0, title: 'ok' },
+    { id: '2', url: 'https://gone.com', parentId: '1', index: 1, title: 'gone' },
+    { id: '3', url: 'https://refused.com', parentId: '1', index: 2, title: 'refused' },
+    { id: '4', url: 'https://slow.com', parentId: '1', index: 3, title: 'slow' },
+    { id: '5', url: 'ftp://skip.com', parentId: '1', index: 4, title: 'skip' },
+  ];
+  const fetchFn = async (url) => {
+    if (url === 'https://ok.com') return { status: 200 };
+    if (url === 'https://gone.com') return { status: 404 };
+    if (url === 'https://refused.com') throw Object.assign(new Error('ECONNREFUSED'), { name: 'TypeError' });
+    if (url === 'https://slow.com') throw Object.assign(new Error('aborted'), { name: 'AbortError' });
+    throw new Error('unexpected url ' + url);
+  };
+  const items = await checkDeadLinks(bms, { fetchFn, concurrency: 2 });
+  const ids = items.map((i) => i.data.bookmarkId).sort();
+  assert.deepEqual(ids, ['2', '3']); // 404 + connection error; slow(200-ish timeout) and non-http skipped
 });
