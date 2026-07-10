@@ -4,6 +4,7 @@ import { createNativeClient } from '../lib/native-client.js';
 import { buildPlan, partitionForApply, applyItems, runCommand } from '../lib/orchestrator.js';
 import { applyItem } from '../lib/executor.js';
 import { recordUndo, reverseEntry, pruneUndo, getUndoLog } from '../lib/undo-log.js';
+import { listSessions, saveCurrentWindowSession, restoreSession, removeSession, saveSessions } from '../lib/sessions.js';
 
 const ALARM_SCAN = 'organizer-scan';
 const ALARM_PRUNE = 'organizer-prune';
@@ -133,6 +134,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         } finally {
           nativeClient.disconnect();
         }
+      } else if (message.cmd === 'saveSession') {
+        const session = await saveCurrentWindowSession(message.name, { chrome });
+        sendResponse({ ok: true, session });
+      } else if (message.cmd === 'listSessions') {
+        sendResponse({ ok: true, sessions: await listSessions() });
+      } else if (message.cmd === 'restoreSession') {
+        const session = await restoreSession(message.id, { chrome });
+        sendResponse({ ok: true, session });
+      } else if (message.cmd === 'deleteSession') {
+        await saveSessions(removeSession(await listSessions(), message.id));
+        sendResponse({ ok: true });
       } else if (message.cmd === 'health') {
         const client = createNativeClient();
         try { sendResponse({ ok: true, health: await client.request({ type: 'health' }) }); }

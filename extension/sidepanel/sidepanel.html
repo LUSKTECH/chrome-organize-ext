@@ -67,6 +67,15 @@
       <button id="closeUndo">Close</button>
     </dialog>
 
+    <details id="sessions">
+      <summary>Sessions</summary>
+      <form id="saveSessionForm">
+        <input type="text" id="sessionName" placeholder="Session name (optional)" />
+        <button type="submit">Save this window as a session</button>
+      </form>
+      <ul id="sessionList"></ul>
+    </details>
+
     <template id="itemTemplate">
       <li class="item">
         <label>

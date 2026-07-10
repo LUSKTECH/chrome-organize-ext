@@ -346,9 +346,46 @@ $('settingsForm').addEventListener('submit', async (e) => {
   setStatus('Settings saved.');
 });
 
+async function renderSessions() {
+  const { sessions } = await send({ cmd: 'listSessions' });
+  const list = $('sessionList');
+  list.textContent = '';
+  for (const s of sessions) {
+    const li = document.createElement('li');
+    const label = document.createElement('span');
+    label.textContent = `${s.name} (${s.tabs.length} tabs)`;
+    const restoreBtn = document.createElement('button');
+    restoreBtn.type = 'button';
+    restoreBtn.textContent = 'Restore';
+    restoreBtn.addEventListener('click', async () => {
+      await send({ cmd: 'restoreSession', id: s.sessionId });
+      setStatus(`Restored "${s.name}".`);
+    });
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.textContent = 'Delete';
+    deleteBtn.addEventListener('click', async () => {
+      await send({ cmd: 'deleteSession', id: s.sessionId });
+      renderSessions();
+    });
+    li.append(label, restoreBtn, deleteBtn);
+    list.appendChild(li);
+  }
+}
+
+$('saveSessionForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const nameInput = $('sessionName');
+  await send({ cmd: 'saveSession', name: nameInput.value.trim() });
+  nameInput.value = '';
+  setStatus('Session saved and tabs closed.');
+  await renderSessions();
+});
+
 (async () => {
   await loadSettings();
   await checkHealth();
   plan = (await send({ cmd: 'getPlan' })).items || [];
   renderPlan();
+  await renderSessions();
 })();
