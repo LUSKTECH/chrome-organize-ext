@@ -19,3 +19,9 @@ test('all_urls is optional, not a standing host permission', () => {
   assert.ok(!(m.host_permissions || []).includes('<all_urls>'), 'should not grant <all_urls> at install');
   assert.ok((m.optional_host_permissions || []).includes('<all_urls>'), 'should request <all_urls> optionally');
 });
+
+test('manifest declares commands and an omnibox keyword', () => {
+  const m = JSON.parse(readFileSync(new URL('../extension/manifest.json', import.meta.url)));
+  assert.ok(m.commands && m.commands['run-scan'], 'run-scan command');
+  assert.equal(m.omnibox.keyword, 'org');
+});

@@ -24,5 +24,10 @@
   "action": {},
   "side_panel": {
     "default_path": "sidepanel/sidepanel.html"
+  },
+  "omnibox": { "keyword": "org" },
+  "commands": {
+    "run-scan": { "suggested_key": { "default": "Ctrl+Shift+O" }, "description": "Analyze tabs & bookmarks" },
+    "open-panel": { "description": "Open Browser Organizer" }
   }
 }

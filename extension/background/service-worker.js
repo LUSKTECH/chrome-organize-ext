@@ -5,6 +5,7 @@ import { buildPlan, partitionForApply, applyItems, runCommand } from '../lib/orc
 import { applyItem } from '../lib/executor.js';
 import { recordUndo, reverseEntry, pruneUndo, getUndoLog } from '../lib/undo-log.js';
 import { listSessions, saveCurrentWindowSession, restoreSession, removeSession, saveSessions } from '../lib/sessions.js';
+import { parseOmnibox } from '../lib/omnibox.js';
 
 const ALARM_SCAN = 'organizer-scan';
 const ALARM_PRUNE = 'organizer-prune';
@@ -49,6 +50,28 @@ chrome.runtime.onStartup.addListener(async () => {
 });
 
 installActivityListeners(chrome);
+
+chrome.commands.onCommand.addListener(async (command) => {
+  if (command === 'run-scan') await runScan();
+  if (command === 'open-panel') {
+    const win = await chrome.windows.getLastFocused();
+    await chrome.sidePanel.open({ windowId: win.id });
+  }
+});
+
+chrome.omnibox.onInputEntered.addListener(async (text) => {
+  const { instruction } = parseOmnibox(text);
+  if (!instruction) return;
+  const win = await chrome.windows.getLastFocused();
+  const client = createNativeClient();
+  try {
+    const items = await runCommand(instruction, { nativeClient: client, windowId: win.id });
+    await chrome.storage.local.set({ currentPlan: items });
+    await chrome.sidePanel.open({ windowId: win.id });
+  } finally {
+    client.disconnect();
+  }
+});
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   const settings = await getSettings();
