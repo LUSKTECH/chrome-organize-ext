@@ -21,7 +21,10 @@ export function toSnapshot(tab, activity, now) {
   };
 }
 
-export async function collectTabs(chromeApi = chrome, activity = {}, now = Date.now()) {
+export async function collectTabs(chromeApi = chrome, activity = {}, now = Date.now(), windowId = null) {
   const tabs = await chromeApi.tabs.query({});
-  return tabs.filter((t) => isHttpUrl(t.url)).map((t) => toSnapshot(t, activity, now));
+  return tabs
+    .filter((t) => isHttpUrl(t.url))
+    .filter((t) => windowId == null || t.windowId === windowId)
+    .map((t) => toSnapshot(t, activity, now));
 }

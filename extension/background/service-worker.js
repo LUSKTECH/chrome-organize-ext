@@ -64,7 +64,7 @@ async function runScan(deps = {}) {
   const settings = await getSettings();
   const nativeClient = createNativeClient();
   try {
-    const items = await buildPlan({ settings, nativeClient, onProgress: deps.onProgress, shouldCancel: deps.shouldCancel, features: deps.features });
+    const items = await buildPlan({ settings, nativeClient, onProgress: deps.onProgress, shouldCancel: deps.shouldCancel, features: deps.features, windowId: deps.windowId ?? null });
     const { autoApply, needsReview } = partitionForApply(items, settings);
     await chrome.storage.local.set({ currentPlan: needsReview });
     if (autoApply.length) {
@@ -91,7 +91,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     try {
       if (message.cmd === 'run') {
         cancelRequested = false;
-        const items = await runScan({ onProgress: broadcastProgress, shouldCancel: () => cancelRequested, features: message.features });
+        const items = await runScan({ onProgress: broadcastProgress, shouldCancel: () => cancelRequested, features: message.features, windowId: message.windowId ?? null });
         sendResponse({ ok: true, items });
       } else if (message.cmd === 'cancel') {
         cancelRequested = true;

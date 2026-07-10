@@ -27,6 +27,18 @@ test('collectTabs excludes non-http tabs', async () => {
   assert.equal(tabs[0].url, 'https://a.com');
 });
 
+test('collectTabs filters to a window when windowId is given', async () => {
+  const chromeApi = { tabs: { async query() {
+    return [
+      { id: 1, url: 'https://a.com', windowId: 9, index: 0 },
+      { id: 2, url: 'https://b.com', windowId: 7, index: 0 },
+    ];
+  } } };
+  const tabs = await collectTabs(chromeApi, {}, 0, 9);
+  assert.equal(tabs.length, 1);
+  assert.equal(tabs[0].windowId, 9);
+});
+
 test('flattenBookmarks yields leaves with folder path', () => {
   const tree = [{ id: '0', children: [
     { id: '1', title: 'Bar', children: [

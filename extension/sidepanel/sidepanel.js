@@ -190,11 +190,18 @@ async function ignoreItem(item) {
   setStatus('Won’t suggest that again.');
 }
 
+async function currentScopeWindowId() {
+  if ($('scope').value !== 'window') return null;
+  const win = await chrome.windows.getCurrent();
+  return win.id;
+}
+
 async function startScan(features) {
   ensureScanPort();
   $('cancelRun').hidden = false;
   setStatus('Analyzing… (running your local Claude CLI)');
-  const res = await send({ cmd: 'run', features });
+  const windowId = await currentScopeWindowId();
+  const res = await send({ cmd: 'run', features, windowId });
   $('cancelRun').hidden = true;
   if (!res.ok) { setStatus(`Error: ${res.error}`); return; }
   plan = (await send({ cmd: 'getPlan' })).items;

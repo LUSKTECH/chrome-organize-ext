@@ -9,6 +9,12 @@
     <header>
       <h1>Browser Organizer</h1>
       <div id="health" role="status"></div>
+      <label>Scope
+        <select id="scope">
+          <option value="window">This window</option>
+          <option value="all">All windows</option>
+        </select>
+      </label>
       <button id="run" class="primary">Analyze my tabs & bookmarks</button>
       <button id="cancelRun" hidden>Cancel</button>
       <p id="status" role="status"></p>

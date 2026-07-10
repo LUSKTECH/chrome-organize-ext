@@ -35,7 +35,7 @@ export async function buildPlan(deps) {
   const priorActivity = (await chromeApi.storage.local.get('tabActivity')).tabActivity || {};
   const activity = reconcile(priorActivity, rawTabs, now);
   await chromeApi.storage.local.set({ tabActivity: activity });
-  const tabs = await collectTabs(chromeApi, activity, now);
+  const tabs = await collectTabs(chromeApi, activity, now, deps.windowId ?? null);
   const byId = indexById(tabs);
   const items = [];
   const f = { ...settings.enabledFeatures, ...(deps.features || {}) };
