@@ -3,9 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "test": "node --test",
+    "e2e": "xvfb-run -a node test/e2e/panel.e2e.mjs",
     "install-host": "node install/install.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.61.1"
   }
 }

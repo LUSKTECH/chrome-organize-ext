@@ -11,11 +11,14 @@ const DIRS = {
     chrome: '.config/google-chrome/NativeMessagingHosts',
     chromium: '.config/chromium/NativeMessagingHosts',
     edge: '.config/microsoft-edge/NativeMessagingHosts',
+    // "Chrome for Testing" — the build Playwright uses as its bundled Chromium.
+    'chrome-for-testing': '.config/google-chrome-for-testing/NativeMessagingHosts',
   },
   darwin: {
     chrome: 'Library/Application Support/Google/Chrome/NativeMessagingHosts',
     chromium: 'Library/Application Support/Chromium/NativeMessagingHosts',
     edge: 'Library/Application Support/Microsoft Edge/NativeMessagingHosts',
+    'chrome-for-testing': 'Library/Application Support/Google/Chrome for Testing/NativeMessagingHosts',
   },
 };
 
