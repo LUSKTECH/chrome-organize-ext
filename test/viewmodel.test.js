@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { summarize, groupByAction, toggleSelection, selectedItems, actionLabel, excludeMember, renameGroup, recolorGroup, itemsForAction, healthMessage, progressLabel } from '../extension/sidepanel/viewmodel.js';
+import { summarize, groupByAction, toggleSelection, selectedItems, actionLabel, excludeMember, renameGroup, recolorGroup, itemsForAction, healthMessage, progressLabel, groupUndoByRun } from '../extension/sidepanel/viewmodel.js';
 
 const items = [
   { itemId: 'a', action: 'closeTab' },
@@ -67,4 +67,12 @@ test('healthMessage reports connected vs not', () => {
 
 test('progressLabel formats phase progress', () => {
   assert.equal(progressLabel('Grouping tabs', 2, 4), 'Grouping tabs… (2/4)');
+});
+
+test('groupUndoByRun buckets entries by run, newest first', () => {
+  const entries = [{ runId: 'a', ts: 1, label: 'x' }, { runId: 'a', ts: 2, label: 'y' }, { runId: 'b', ts: 5, label: 'z' }];
+  const runs = groupUndoByRun(entries);
+  assert.equal(runs.length, 2);
+  assert.equal(runs[0].runId, 'b'); // newest run first
+  assert.equal(runs[1].entries.length, 2);
 });

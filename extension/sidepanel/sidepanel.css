@@ -24,3 +24,9 @@ ul { margin: 0; padding: 0; }
 .groupItem .memberList { margin: 6px 0 6px 16px; }
 .groupItem .memberList li { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; }
 .groupItem .applySection { margin-left: 16px; margin-bottom: 6px; }
+
+#undoToast { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; padding: 8px 10px; border-radius: 6px; background: #3367d6; color: #fff; }
+#undoToast button { background: #fff2; border: 1px solid #fff5; color: #fff; }
+.undoRun { list-style: none; border-bottom: 1px solid #8882; padding: 6px 0; }
+.undoRunHeader { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; color: #888; }
+.undoRun ul { margin-left: 16px; }

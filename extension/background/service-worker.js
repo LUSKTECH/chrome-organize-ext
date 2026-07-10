@@ -68,7 +68,8 @@ async function runScan(deps = {}) {
     const { autoApply, needsReview } = partitionForApply(items, settings);
     await chrome.storage.local.set({ currentPlan: needsReview });
     if (autoApply.length) {
-      const res = await applyItems(autoApply, { applyItem: (i) => applyItem(i, {}), recordUndo });
+      const runId = `run-${Date.now()}`;
+      const res = await applyItems(autoApply, { runId, applyItem: (i) => applyItem(i, { runId }), recordUndo });
       await notify(`Applied ${res.applied.length} changes (${res.failed.length} failed). Undo available.`);
     } else if (needsReview.length) {
       await notify(`${needsReview.length} suggestions ready to review.`);
@@ -104,7 +105,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       } else if (message.cmd === 'apply') {
         const { currentPlan = [] } = await chrome.storage.local.get('currentPlan');
         const chosen = currentPlan.filter((i) => message.itemIds.includes(i.itemId));
-        const res = await applyItems(chosen, { applyItem: (i) => applyItem(i, {}), recordUndo });
+        const runId = `run-${Date.now()}`;
+        const res = await applyItems(chosen, { runId, applyItem: (i) => applyItem(i, { runId }), recordUndo });
         const remaining = currentPlan.filter((i) => !res.applied.includes(i.itemId));
         await chrome.storage.local.set({ currentPlan: remaining });
         sendResponse({ ok: true, ...res });

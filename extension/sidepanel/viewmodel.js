@@ -54,3 +54,14 @@ export function healthMessage(health) {
 export function progressLabel(phase, done, total) {
   return `${phase}… (${done}/${total})`;
 }
+
+export function groupUndoByRun(entries) {
+  const byRun = new Map();
+  for (const e of entries) {
+    if (!byRun.has(e.runId)) byRun.set(e.runId, { runId: e.runId, ts: e.ts, entries: [] });
+    const r = byRun.get(e.runId);
+    r.entries.push(e);
+    r.ts = Math.max(r.ts, e.ts);
+  }
+  return [...byRun.values()].sort((a, b) => b.ts - a.ts);
+}

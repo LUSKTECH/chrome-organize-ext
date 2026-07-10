@@ -4,6 +4,12 @@ export class StaleTabError extends Error {}
 
 function undoId() { return `${Date.now()}-${Math.random().toString(36).slice(2)}`; }
 
+const ACTION_LABELS = { closeTab: 'Close tab', groupTabs: 'Group tabs', createBookmark: 'Bookmark', deleteBookmark: 'Delete bookmark' };
+function labelFor(item) {
+  const name = item.data.title || item.data.groupName || item.data.url || '';
+  return `${ACTION_LABELS[item.action] || item.action}: ${name}`.trim();
+}
+
 // Walk/create a folder path under the bookmarks bar (id '1'); returns the leaf folder id.
 export async function ensureFolder(pathParts, chromeApi) {
   let parentId = '1';
@@ -18,6 +24,12 @@ export async function ensureFolder(pathParts, chromeApi) {
 
 export async function applyItem(item, deps = {}) {
   const c = deps.chrome || chrome;
+  const runId = deps.runId || 'run';
+  const entry = await applyItemInner(item, c);
+  return entry ? { ...entry, runId, label: labelFor(item) } : entry;
+}
+
+async function applyItemInner(item, c) {
   switch (item.action) {
     case 'closeTab': {
       const { tabId, url, title, windowId, index, pinned, bookmarkFirst } = item.data;

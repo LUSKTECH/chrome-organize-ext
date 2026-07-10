@@ -1,7 +1,7 @@
 import { getSettings, setSettings } from '../lib/storage.js';
 import {
   summarize, groupByAction, toggleSelection, selectedItems, actionLabel,
-  excludeMember, renameGroup, recolorGroup, healthMessage, progressLabel,
+  excludeMember, renameGroup, recolorGroup, healthMessage, progressLabel, groupUndoByRun,
 } from './viewmodel.js';
 
 const GROUP_COLORS = ['grey', 'blue', 'red', 'yellow', 'green', 'pink', 'purple', 'cyan', 'orange'];
@@ -146,6 +146,30 @@ function renderPlan() {
   }
 }
 
+let toastTimer = null;
+async function showUndoToast() {
+  const { entries } = await send({ cmd: 'getUndo' });
+  const runs = groupUndoByRun(entries);
+  const toast = $('undoToast');
+  if (!runs.length) { toast.hidden = true; return; }
+  const latest = runs[0];
+  toast.textContent = '';
+  const msg = document.createElement('span');
+  msg.textContent = `Applied ${latest.entries.length} change${latest.entries.length === 1 ? '' : 's'}.`;
+  const undoBtn = document.createElement('button');
+  undoBtn.type = 'button';
+  undoBtn.textContent = 'Undo';
+  undoBtn.addEventListener('click', async () => {
+    await send({ cmd: 'undo', undoIds: latest.entries.map((e) => e.undoId) });
+    setStatus(`Reverted ${latest.entries.length}.`);
+    toast.hidden = true;
+  });
+  toast.append(msg, undoBtn);
+  toast.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toast.hidden = true; }, 8000);
+}
+
 async function applyItems(itemIds) {
   if (!itemIds.length) { setStatus('Nothing selected.'); return; }
   setStatus(`Applying ${itemIds.length}…`);
@@ -154,7 +178,8 @@ async function applyItems(itemIds) {
   plan = (await send({ cmd: 'getPlan' })).items;
   selection = new Set();
   renderPlan();
-  setStatus(`Applied ${res.applied.length}. ${res.failed.length ? res.failed.length + ' failed.' : ''} Undo available.`);
+  setStatus(`Applied ${res.applied.length}. ${res.failed.length ? res.failed.length + ' failed.' : ''}`);
+  await showUndoToast();
 }
 
 $('run').addEventListener('click', async () => {
@@ -177,18 +202,42 @@ $('approveAll').addEventListener('click', () => applyItems(plan.map((i) => i.ite
 
 $('showUndo').addEventListener('click', async () => {
   const { entries } = await send({ cmd: 'getUndo' });
+  const runs = groupUndoByRun(entries);
   const list = $('undoList');
   list.textContent = '';
-  for (const e of entries.slice().reverse()) {
-    const li = document.createElement('li');
-    const label = document.createElement('label');
-    const cb = document.createElement('input');
-    cb.type = 'checkbox'; cb.value = e.undoId;
-    label.append(cb, ` ${actionLabel(e.action)} — ${new Date(e.ts).toLocaleString()}`);
-    li.appendChild(label);
-    list.appendChild(li);
-  }
   const dlg = $('undoDialog');
+  for (const run of runs) {
+    const runLi = document.createElement('li');
+    runLi.className = 'undoRun';
+
+    const header = document.createElement('div');
+    header.className = 'undoRunHeader';
+    const ts = document.createElement('span');
+    ts.textContent = new Date(run.ts).toLocaleString();
+    const undoRunBtn = document.createElement('button');
+    undoRunBtn.type = 'button';
+    undoRunBtn.textContent = 'Undo this run';
+    undoRunBtn.addEventListener('click', async () => {
+      await send({ cmd: 'undo', undoIds: run.entries.map((e) => e.undoId) });
+      setStatus(`Reverted ${run.entries.length}.`);
+      dlg.close();
+    });
+    header.append(ts, undoRunBtn);
+    runLi.appendChild(header);
+
+    const entryList = document.createElement('ul');
+    for (const e of run.entries) {
+      const li = document.createElement('li');
+      const label = document.createElement('label');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.value = e.undoId;
+      label.append(cb, ` ${e.label || actionLabel(e.action)}`);
+      li.appendChild(label);
+      entryList.appendChild(li);
+    }
+    runLi.appendChild(entryList);
+    list.appendChild(runLi);
+  }
   dlg.showModal();
   dlg.querySelector('#closeUndo').onclick = async () => {
     const undoIds = [...list.querySelectorAll('input:checked')].map((c) => c.value);

@@ -97,6 +97,14 @@ test('closeTab proceeds when the url still matches', async () => {
   assert.equal(undo.reverse.url, 'https://a.com');
 });
 
+test('applyItem stamps runId and a human label on the undo entry', async () => {
+  const chrome = { tabs: { async get(id) { return { id, url: 'https://a.com' }; }, async remove() {} }, bookmarks: { async getChildren() { return []; }, async create(n) { return { id: '1', ...n }; } } };
+  const item = { action: 'closeTab', data: { tabId: 3, url: 'https://a.com', title: 'A', windowId: 1, index: 0, pinned: false, bookmarkFirst: false } };
+  const undo = await applyItem(item, { chrome, runId: 'run-1' });
+  assert.equal(undo.runId, 'run-1');
+  assert.match(undo.label, /Close tab.*A/);
+});
+
 test('ensureFolder reuses an existing folder', async () => {
   const chrome = makeChrome();
   await ensureFolder(['Dev'], chrome);

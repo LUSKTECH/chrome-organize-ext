@@ -103,7 +103,8 @@ export function sliceForScan(items, cursor, batchSize) {
 }
 
 export async function applyItems(items, deps = {}) {
-  const applyItem = deps.applyItem || ((item) => defaultApplyItem(item, {}));
+  const runId = deps.runId || `run-${Date.now()}`;
+  const applyItem = deps.applyItem || ((item) => defaultApplyItem(item, { runId }));
   const recordUndo = deps.recordUndo || defaultRecordUndo;
   const applied = [];
   const failed = [];
