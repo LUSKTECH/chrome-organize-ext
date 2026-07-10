@@ -3,6 +3,7 @@ import { collectBookmarks } from './bookmark-collector.js';
 import { reconcile } from './activity-tracker.js';
 import { indexById, mapGroupResult, mapStaleResult, mapImportantResult, validatePlanItem } from './plan.js';
 import { findDuplicateBookmarks, findStaleBookmarks, getVisitsMap, checkDeadLinks, recordDeadStrikes, dedupeDeletes } from './bookmark-health.js';
+import { findDuplicateTabs } from './tab-health.js';
 import { applyItem as defaultApplyItem } from './executor.js';
 import { recordUndo as defaultRecordUndo } from './undo-log.js';
 import { redactUrl } from './url-utils.js';
@@ -26,7 +27,7 @@ export async function buildPlan(deps) {
   const { settings, nativeClient, chromeApi = chrome, now = Date.now() } = deps;
   const onProgress = deps.onProgress || (() => {});
   const shouldCancel = deps.shouldCancel || (() => false);
-  const PHASES = 4;
+  const PHASES = 5;
   let done = 0;
   const step = (label) => { onProgress(label, done++, PHASES); };
 
@@ -39,8 +40,14 @@ export async function buildPlan(deps) {
   const items = [];
   const f = { ...settings.enabledFeatures, ...(deps.features || {}) };
 
-  step('Grouping tabs');
+  step('Finding duplicate tabs');
   if (shouldCancel()) return [];
+  if (f.dupeTabs && tabs.length) {
+    items.push(...findDuplicateTabs(tabs));
+  }
+
+  step('Grouping tabs');
+  if (shouldCancel()) return items;
   if (f.groupTabs && tabs.length) {
     const r = await nativeClient.request({ type: 'organize', task: 'group', payload: { tabs: projectTabsForHost(tabs) } });
     items.push(...mapGroupResult(r.groups, byId));
