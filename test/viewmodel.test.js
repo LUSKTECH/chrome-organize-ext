@@ -65,6 +65,21 @@ test('healthMessage reports connected vs not', () => {
   assert.match(bad.text, /install-host/);
 });
 
+test('healthMessage: host-missing error gives the install-host step with the real extension id', () => {
+  const m = healthMessage({ ready: false, error: 'Specified native messaging host not found.' }, 'abcdef123');
+  assert.equal(m.ok, false);
+  assert.match(m.text, /install-host abcdef123 chrome,edge/);
+  assert.match(m.text, /reload/i);           // tells the user to reload
+  assert.doesNotMatch(m.text, /<EXTENSION_ID>/); // no literal placeholder
+});
+
+test('healthMessage: CLI-missing error points at the claude CLI, not install-host', () => {
+  const m = healthMessage({ ready: false, error: 'spawn claude ENOENT' }, 'abcdef123');
+  assert.equal(m.ok, false);
+  assert.match(m.text, /claude --version/);
+  assert.doesNotMatch(m.text, /install-host/); // wrong fix for this cause
+});
+
 test('progressLabel formats phase progress', () => {
   assert.equal(progressLabel('Grouping tabs', 2, 4), 'Grouping tabs… (2/4)');
 });

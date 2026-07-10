@@ -47,9 +47,33 @@ export function itemsForAction(items, action) {
   return items.filter((it) => it.action === action);
 }
 
-export function healthMessage(health) {
+export function healthMessage(health, extensionId = '<your-extension-id>') {
   if (health && health.ready) return { ok: true, text: `Claude CLI connected (${health.version || 'ok'})` };
-  return { ok: false, text: 'Claude CLI not reachable. Run: npm run install-host <EXTENSION_ID> chrome,edge — then confirm the claude CLI is installed.' };
+  const err = String((health && health.error) || '');
+  // Two very different causes need two different fixes. Native-messaging
+  // connection failures ("host not found/disconnected") mean the helper isn't
+  // registered; anything else from a reachable helper means the CLI itself
+  // failed to start.
+  const hostMissing = err === '' || /not found|disconnected|not allowed|forbidden|no such|specified native|host/i.test(err);
+  if (hostMissing) {
+    return {
+      ok: false,
+      text: [
+        "Can't reach the helper app that runs Claude for this extension.",
+        'Fix: open a terminal in the extension’s project folder and run:',
+        `    npm run install-host ${extensionId} chrome,edge`,
+        'Then click the reload icon on this extension and reopen this panel.',
+      ].join('\n'),
+    };
+  }
+  return {
+    ok: false,
+    text: [
+      'The helper app is running, but the Claude CLI did not start.',
+      'Fix: make sure the "claude" command is installed and signed in',
+      '(run "claude --version" in a terminal), then reopen this panel.',
+    ].join('\n'),
+  };
 }
 
 export function progressLabel(phase, done, total) {

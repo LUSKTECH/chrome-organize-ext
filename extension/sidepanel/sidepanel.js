@@ -320,8 +320,9 @@ $('showUndo').addEventListener('click', async () => {
 
 async function checkHealth() {
   const res = await send({ cmd: 'health' });
-  const { ok, text } = healthMessage(res && res.health);
+  const { ok, text } = healthMessage(res && res.health, chrome.runtime.id);
   const el = $('health');
+  el.style.whiteSpace = 'pre-line'; // render the multi-line guidance
   el.textContent = text;
   el.classList.toggle('healthOk', ok);
   el.classList.toggle('healthBad', !ok);
