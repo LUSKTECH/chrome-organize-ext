@@ -6,6 +6,7 @@ import { applyItem } from '../lib/executor.js';
 import { recordUndo, reverseEntry, pruneUndo, getUndoLog } from '../lib/undo-log.js';
 import { listSessions, saveCurrentWindowSession, restoreSession, removeSession, saveSessions } from '../lib/sessions.js';
 import { parseOmnibox } from '../lib/omnibox.js';
+import { digestText } from '../sidepanel/viewmodel.js';
 
 const ALARM_SCAN = 'organizer-scan';
 const ALARM_PRUNE = 'organizer-prune';
@@ -96,7 +97,7 @@ async function runScan(deps = {}) {
       const res = await applyItems(autoApply, { runId, applyItem: (i) => applyItem(i, { runId }), recordUndo });
       await notify(`Applied ${res.applied.length} changes (${res.failed.length} failed). Undo available.`);
     } else if (needsReview.length) {
-      await notify(`${needsReview.length} suggestions ready to review.`);
+      await notify(digestText(needsReview));
     }
     return items;
   } finally {

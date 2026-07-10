@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { summarize, groupByAction, toggleSelection, selectedItems, actionLabel, excludeMember, renameGroup, recolorGroup, itemsForAction, healthMessage, progressLabel, groupUndoByRun } from '../extension/sidepanel/viewmodel.js';
+import { summarize, groupByAction, toggleSelection, selectedItems, actionLabel, excludeMember, renameGroup, recolorGroup, itemsForAction, healthMessage, progressLabel, groupUndoByRun, digestText } from '../extension/sidepanel/viewmodel.js';
 
 const items = [
   { itemId: 'a', action: 'closeTab' },
@@ -75,4 +75,9 @@ test('groupUndoByRun buckets entries by run, newest first', () => {
   assert.equal(runs.length, 2);
   assert.equal(runs[0].runId, 'b'); // newest run first
   assert.equal(runs[1].entries.length, 2);
+});
+
+test('digestText summarizes counts or says all tidy', () => {
+  assert.match(digestText([{ action: 'closeTab' }, { action: 'closeTab' }, { action: 'groupTabs' }]), /2 tabs to close.*1 group/i);
+  assert.match(digestText([]), /tidy|nothing/i);
 });
