@@ -2,7 +2,7 @@ import { collectTabs } from './tab-collector.js';
 import { collectBookmarks } from './bookmark-collector.js';
 import { reconcile } from './activity-tracker.js';
 import { indexById, mapGroupResult, mapStaleResult, mapImportantResult, validatePlanItem } from './plan.js';
-import { findDuplicateBookmarks, findStaleBookmarks, getVisitsMap, checkDeadLinks, recordDeadStrikes } from './bookmark-health.js';
+import { findDuplicateBookmarks, findStaleBookmarks, getVisitsMap, checkDeadLinks, recordDeadStrikes, dedupeDeletes } from './bookmark-health.js';
 import { applyItem as defaultApplyItem } from './executor.js';
 import { recordUndo as defaultRecordUndo } from './undo-log.js';
 
@@ -51,14 +51,16 @@ export async function buildPlan(deps) {
   if (f.cleanBookmarks) {
     const bookmarks = await collectBookmarks(chromeApi);
     const visits = await getVisitsMap(bookmarks, chromeApi);
-    items.push(...findDuplicateBookmarks(bookmarks));
-    items.push(...findStaleBookmarks(bookmarks, visits, settings.staleBookmarkDays, now));
+    const deletes = [];
+    deletes.push(...findDuplicateBookmarks(bookmarks));
+    deletes.push(...findStaleBookmarks(bookmarks, visits, settings.staleBookmarkDays, now));
     const deadCandidates = await checkDeadLinks(bookmarks, {});
     const prevStrikes = (await chromeApi.storage.local.get('deadStrikes')).deadStrikes || {};
     const { strikes, confirmed } = recordDeadStrikes(prevStrikes, deadCandidates.map((d) => d.data.bookmarkId));
     await chromeApi.storage.local.set({ deadStrikes: strikes });
     const confirmedSet = new Set(confirmed);
-    items.push(...deadCandidates.filter((d) => confirmedSet.has(d.data.bookmarkId)));
+    deletes.push(...deadCandidates.filter((d) => confirmedSet.has(d.data.bookmarkId)));
+    items.push(...dedupeDeletes(deletes));
   }
 
   return items.filter(validatePlanItem);

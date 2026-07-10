@@ -68,6 +68,20 @@ export function recordDeadStrikes(prevStrikes, deadIds) {
   return { strikes, confirmed };
 }
 
+export function dedupeDeletes(items) {
+  const byId = new Map();
+  for (const it of items) {
+    const key = it.data.bookmarkId;
+    if (byId.has(key)) {
+      const merged = byId.get(key);
+      if (!merged.reason.includes(it.reason)) merged.reason = `${merged.reason}; ${it.reason}`;
+    } else {
+      byId.set(key, { ...it, reason: it.reason });
+    }
+  }
+  return [...byId.values()];
+}
+
 export async function checkDeadLinks(bookmarks, deps = {}) {
   const fetchFn = deps.fetchFn || ((url, opts) => fetch(url, opts));
   const timeoutMs = deps.timeoutMs ?? 8000;

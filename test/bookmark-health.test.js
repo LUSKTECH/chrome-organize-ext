@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { findDuplicateBookmarks, findStaleBookmarks, getVisitsMap } from '../extension/lib/bookmark-health.js';
-import { checkDeadLinks, recordDeadStrikes } from '../extension/lib/bookmark-health.js';
+import { checkDeadLinks, recordDeadStrikes, dedupeDeletes } from '../extension/lib/bookmark-health.js';
 
 const DAY = 86400000;
 
@@ -72,4 +72,17 @@ test('recordDeadStrikes confirms only on the second consecutive failure', () => 
   ({ strikes, confirmed } = recordDeadStrikes(strikes, ['b1']));
   assert.deepEqual(confirmed, ['b1']);        // b1 failed twice
   assert.equal(strikes.b2, undefined);        // b2 recovered -> strike cleared
+});
+
+test('dedupeDeletes merges same-bookmark items and combines reasons', () => {
+  const items = [
+    { itemId: 'del-5', action: 'deleteBookmark', reason: 'Duplicate', data: { bookmarkId: '5' } },
+    { itemId: 'del-5', action: 'deleteBookmark', reason: 'Dead link (HTTP 404)', data: { bookmarkId: '5' } },
+    { itemId: 'del-6', action: 'deleteBookmark', reason: 'Not visited', data: { bookmarkId: '6' } },
+  ];
+  const out = dedupeDeletes(items);
+  assert.equal(out.length, 2);
+  const five = out.find((i) => i.data.bookmarkId === '5');
+  assert.match(five.reason, /Duplicate/);
+  assert.match(five.reason, /404/);
 });
