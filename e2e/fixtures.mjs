@@ -33,6 +33,7 @@ export const test = base.extend({
   // ignores non-http tabs). Returns the base URL, e.g. http://127.0.0.1:PORT.
   server: async ({}, use) => {
     const srv = http.createServer((req, res) => {
+      if (req.url === '/dead') { res.writeHead(404); res.end('not found'); return; } // for dead-link tests
       const title = PAGES[req.url] || `Page ${req.url}`;
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       res.end(`<!doctype html><html><head><title>${title}</title></head><body><h1>${title}</h1></body></html>`);
@@ -73,6 +74,9 @@ export const test = base.extend({
         '--no-sandbox',
         '--disable-dev-shm-usage',
         '--no-first-run',
+        // Map a non-private hostname to the local server so dead-link checks
+        // (which skip loopback/private hosts) can reach it.
+        '--host-resolver-rules=MAP deadlink.test 127.0.0.1',
       ],
     });
     await use(context);
@@ -123,3 +127,15 @@ export function runFeature(panel, feature) {
   features[feature] = true;
   return send(panel, { cmd: 'run', features });
 }
+
+// chrome.* helpers usable from the panel (extension) page context.
+export const createBookmark = (panel, node) =>
+  panel.evaluate((n) => new Promise((r) => chrome.bookmarks.create(n, r)), node);
+export const getBookmark = (panel, id) =>
+  panel.evaluate((i) => new Promise((r) => { chrome.bookmarks.get(i, (res) => { void chrome.runtime.lastError; r((res && res[0]) || null); }); }), id);
+export const searchBookmarks = (panel, url) =>
+  panel.evaluate((u) => new Promise((r) => chrome.bookmarks.search({ url: u }, r)), url);
+export const setStoredSettings = (panel, patch) =>
+  panel.evaluate((p) => new Promise((r) => chrome.storage.sync.get('settings', ({ settings = {} }) => chrome.storage.sync.set({ settings: { ...settings, ...p } }, r))), patch);
+export const getAlarms = (panel) =>
+  panel.evaluate(() => new Promise((r) => chrome.alarms.getAll(r)));
