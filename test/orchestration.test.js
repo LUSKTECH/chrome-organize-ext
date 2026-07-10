@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { partitionForApply, applyItems } from '../extension/lib/orchestrator.js';
+import { partitionForApply, applyItems, buildPlan } from '../extension/lib/orchestrator.js';
 
 test('partitionForApply routes everything to review in review mode', () => {
   const items = [{ itemId: 'a' }, { itemId: 'b' }];
@@ -36,4 +36,22 @@ test('applyItems applies each item, records undo, and reports failures', async (
   assert.deepEqual(res.applied, ['ok']);
   assert.deepEqual(res.failed, ['bad']);
   assert.equal(recorded.length, 1);
+});
+
+test('buildPlan reconciles activity and persists it (drops closed tabs)', async () => {
+  const stored = { tabActivity: { 1: { firstSeen: 0, lastActive: 0 }, 999: { firstSeen: 0, lastActive: 0 } } };
+  const chromeApi = {
+    storage: { local: {
+      async get(k) { return typeof k === 'string' ? { [k]: stored[k] } : { ...stored }; },
+      async set(obj) { Object.assign(stored, obj); },
+    } },
+    tabs: { async query() { return [{ id: 1, url: 'https://a.com', windowId: 1, index: 0, lastAccessed: 1000 }]; } },
+    bookmarks: { async getTree() { return []; } },
+    history: { async getVisits() { return []; } },
+  };
+  const nativeClient = { request: async () => ({ groups: [], stale: [], important: [] }) };
+  const settings = { enabledFeatures: { groupTabs: false, staleTabs: false, importantBookmarks: false, cleanBookmarks: false }, staleTabDays: 14, staleBookmarkDays: 180 };
+  await buildPlan({ settings, nativeClient, chromeApi, now: 2000 });
+  assert.ok(!stored.tabActivity['999'], 'closed tab entry pruned');
+  assert.ok(stored.tabActivity['1'], 'open tab kept');
 });

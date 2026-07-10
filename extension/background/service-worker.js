@@ -18,6 +18,15 @@ chrome.runtime.onInstalled.addListener(async () => {
   await chrome.alarms.create(ALARM_PRUNE, { periodInMinutes: 1440 });
 });
 
+chrome.runtime.onStartup.addListener(async () => {
+  const now = Date.now();
+  const rawTabs = await chrome.tabs.query({});
+  const { tabActivity = {} } = await chrome.storage.local.get('tabActivity');
+  const { reconcile } = await import('../lib/activity-tracker.js');
+  await chrome.storage.local.set({ tabActivity: reconcile(tabActivity, rawTabs, now) });
+  await chrome.storage.local.remove('currentPlan'); // stale plan (see Task 6)
+});
+
 installActivityListeners(chrome);
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {

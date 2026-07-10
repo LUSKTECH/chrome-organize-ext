@@ -1,5 +1,6 @@
 import { collectTabs } from './tab-collector.js';
 import { collectBookmarks } from './bookmark-collector.js';
+import { reconcile } from './activity-tracker.js';
 import { indexById, mapGroupResult, mapStaleResult, mapImportantResult, validatePlanItem } from './plan.js';
 import { findDuplicateBookmarks, findStaleBookmarks, getVisitsMap, checkDeadLinks } from './bookmark-health.js';
 import { applyItem as defaultApplyItem } from './executor.js';
@@ -20,7 +21,10 @@ export function projectTabsForHost(tabs) {
 // in production it defaults to real collectors + a native client passed in.
 export async function buildPlan(deps) {
   const { settings, nativeClient, chromeApi = chrome, now = Date.now() } = deps;
-  const activity = (await chromeApi.storage.local.get('tabActivity')).tabActivity || {};
+  const rawTabs = await chromeApi.tabs.query({});
+  const priorActivity = (await chromeApi.storage.local.get('tabActivity')).tabActivity || {};
+  const activity = reconcile(priorActivity, rawTabs, now);
+  await chromeApi.storage.local.set({ tabActivity: activity });
   const tabs = await collectTabs(chromeApi, activity, now);
   const byId = indexById(tabs);
   const items = [];
