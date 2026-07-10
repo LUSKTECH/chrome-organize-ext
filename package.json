@@ -8,10 +8,11 @@
   },
   "scripts": {
     "test": "node --test test/*.test.js",
-    "e2e": "xvfb-run -a node test/e2e/panel.e2e.mjs",
+    "e2e": "xvfb-run -a playwright test",
     "install-host": "node install/install.js"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "playwright": "^1.61.1"
   }
 }

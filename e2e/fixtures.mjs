@@ -1,0 +1,122 @@
+// Playwright test fixtures for the Browser Organizer extension.
+//
+// Provides an extension-loaded persistent Chrome-for-Testing context with the
+// native-messaging host registered so the full pipe (panel -> service worker ->
+// native host -> claude) is exercisable, plus a local HTTP server so tests can
+// open realistic http(s) tabs with distinct titles/urls.
+
+import { test as base, expect, chromium } from '@playwright/test';
+import http from 'node:http';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { install, buildHostManifest, HOST_NAME } from '../install/install.js';
+
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const extPath = path.join(repoRoot, 'extension');
+// The extension id is stable — derived from the manifest's pinned key.
+const EXT_ID = process.env.BORG_EXT_ID || 'jjacbpnaekkhbfpncfhmignbiocddocc';
+
+// Pages the local server serves, titled to give the model something to cluster.
+const PAGES = {
+  '/react/docs': 'React – Documentation',
+  '/react/hooks': 'React Hooks – API Reference',
+  '/react/router': 'React Router – Guide',
+  '/news/politics': 'Daily Times – Politics',
+  '/news/sports': 'Daily Times – Sports',
+  '/news/tech': 'Daily Times – Technology',
+};
+
+export const test = base.extend({
+  // A tiny local site so opened tabs are real http(s) tabs (the extension
+  // ignores non-http tabs). Returns the base URL, e.g. http://127.0.0.1:PORT.
+  server: async ({}, use) => {
+    const srv = http.createServer((req, res) => {
+      const title = PAGES[req.url] || `Page ${req.url}`;
+      res.writeHead(200, { 'content-type': 'text/html' });
+      res.end(`<!doctype html><html><head><title>${title}</title></head><body><h1>${title}</h1></body></html>`);
+    });
+    await new Promise((r) => srv.listen(0, '127.0.0.1', r));
+    const { port } = srv.address();
+    await use(`http://127.0.0.1:${port}`);
+    await new Promise((r) => srv.close(r));
+  },
+
+  // Extension-loaded persistent context with the native host reachable.
+  context: async ({}, use) => {
+    try { install({ extensionId: EXT_ID, browsers: ['chrome-for-testing'] }); } catch { /* best effort */ }
+    const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'borg-e2e-'));
+    const xdgConfigHome = path.join(userDataDir, 'xdgcfg');
+    const launcher = path.join(repoRoot, 'native-host', process.platform === 'win32' ? 'run.bat' : 'run.sh');
+    const manifestJson = JSON.stringify(buildHostManifest({ execPath: launcher, extensionId: EXT_ID }), null, 2);
+    // Place the host manifest deterministically where Chrome for Testing looks.
+    for (const d of [
+      path.join(userDataDir, 'NativeMessagingHosts'),
+      path.join(xdgConfigHome, 'google-chrome-for-testing', 'NativeMessagingHosts'),
+      path.join(xdgConfigHome, 'chromium', 'NativeMessagingHosts'),
+    ]) {
+      fs.mkdirSync(d, { recursive: true });
+      fs.writeFileSync(path.join(d, `${HOST_NAME}.json`), manifestJson);
+    }
+
+    const context = await chromium.launchPersistentContext(userDataDir, {
+      channel: 'chromium', // bundled Chrome for Testing (branded Chrome blocks --load-extension)
+      headless: false,     // run headed under xvfb — the reliable path for MV3 extensions
+      env: { ...process.env, XDG_CONFIG_HOME: xdgConfigHome },
+      args: [
+        `--disable-extensions-except=${extPath}`,
+        `--load-extension=${extPath}`,
+        '--no-sandbox',
+        '--disable-dev-shm-usage',
+        '--no-first-run',
+      ],
+    });
+    await use(context);
+    await context.close();
+    try { fs.rmSync(userDataDir, { recursive: true, force: true }); } catch { /* ignore */ }
+  },
+
+  extensionId: async ({ context }, use) => {
+    let [sw] = context.serviceWorkers();
+    if (!sw) { try { sw = await context.waitForEvent('serviceworker', { timeout: 10000 }); } catch { /* lazy */ } }
+    await use(sw ? new URL(sw.url()).host : EXT_ID);
+  },
+
+  // A page pointed at the side-panel HTML (an extension page with full chrome.* access).
+  panel: async ({ context, extensionId }, use) => {
+    const page = await context.newPage();
+    await page.goto(`chrome-extension://${extensionId}/sidepanel/sidepanel.html`, { waitUntil: 'domcontentloaded' });
+    await use(page);
+  },
+});
+
+export { expect };
+
+// Send a message to the service worker from the panel page (same API the UI uses).
+export function send(panel, message) {
+  return panel.evaluate(
+    (msg) => new Promise((r) => { try { chrome.runtime.sendMessage(msg, r); } catch (e) { r({ error: String(e) }); } }),
+    message,
+  );
+}
+
+export function queryTabs(panel) {
+  return panel.evaluate(() => new Promise((r) => chrome.tabs.query({}, r)));
+}
+
+export function queryGroups(panel) {
+  return panel.evaluate(() => new Promise((r) => chrome.tabGroups.query({}, r)));
+}
+
+export async function countTabsWithUrl(panel, url) {
+  const tabs = await queryTabs(panel);
+  return tabs.filter((t) => t.url === url).length;
+}
+
+// Run one feature in isolation via the service worker's `run` command.
+export function runFeature(panel, feature) {
+  const features = { dupeTabs: false, groupTabs: false, staleTabs: false, importantBookmarks: false, cleanBookmarks: false, deadLinkScan: false };
+  features[feature] = true;
+  return send(panel, { cmd: 'run', features });
+}
