@@ -27,16 +27,16 @@
       <button id="cancelRun" aria-label="Cancel the running scan" hidden>Cancel</button>
       <p id="status" role="status"></p>
       <div id="runOne" class="runOne">
-        <button type="button" data-feature="groupTabs">Group tabs</button>
-        <button type="button" data-feature="staleTabs">Find stale tabs</button>
-        <button type="button" data-feature="importantBookmarks">Bookmark important</button>
-        <button type="button" data-feature="cleanBookmarks">Clean bookmarks</button>
-        <button type="button" id="clearPlan">Clear list</button>
+        <button type="button" data-feature="groupTabs" data-i18n="featGroupTabs">Group tabs</button>
+        <button type="button" data-feature="staleTabs" data-i18n="featStaleTabs">Find stale tabs</button>
+        <button type="button" data-feature="importantBookmarks" data-i18n="featBookmarkImportant">Bookmark important</button>
+        <button type="button" data-feature="cleanBookmarks" data-i18n="featCleanBookmarks">Clean bookmarks</button>
+        <button type="button" id="clearPlan" data-i18n="clearList">Clear list</button>
       </div>
     </header>
 
     <section id="onboarding" hidden>
-      <h2>Connect your AI CLI</h2>
+      <h2 data-i18n="onboardingTitle">Connect your AI CLI</h2>
       <p>Browser Organizer runs a local AI CLI to organize your tabs and bookmarks. Register the helper once in a terminal:</p>
       <pre id="installCmd"></pre>
       <div class="onboardingActions">
@@ -47,19 +47,19 @@
     </section>
 
     <details id="tabsPanel">
-      <summary>Open tabs</summary>
+      <summary data-i18n="openTabs">Open tabs</summary>
       <input type="text" id="tabFilter" aria-label="Filter open tabs by title, URL, or domain" placeholder="Filter by title, URL, or domain" />
       <ul id="tabList"></ul>
       <div class="tabsActions">
-        <button id="closeTabsBtn">Close selected</button>
+        <button id="closeTabsBtn" data-i18n="closeSelected">Close selected</button>
         <span id="tabCount" class="hint"></span>
       </div>
     </details>
 
     <form id="commandForm" class="commandForm">
-      <label for="commandInput">Tell it what to do</label>
+      <label for="commandInput" data-i18n="commandLabel">Tell it what to do</label>
       <input type="text" id="commandInput" placeholder="e.g. close everything about travel" />
-      <button type="submit">Run command</button>
+      <button type="submit" data-i18n="runCommand">Run command</button>
     </form>
     <p class="hint">Tip: <kbd>Ctrl+Shift+O</kbd> to analyze · type <kbd>org &lt;instruction&gt;</kbd> in the address bar.</p>
 
@@ -78,10 +78,10 @@
     <div id="undoToast" role="status" hidden></div>
 
     <footer>
-      <button id="approveSelected">Apply selected</button>
-      <button id="approveAll">Apply all</button>
-      <button id="showUndo">Undo history</button>
-      <button id="exportMarkdown">Export as Markdown</button>
+      <button id="approveSelected" data-i18n="applySelected">Apply selected</button>
+      <button id="approveAll" data-i18n="applyAll">Apply all</button>
+      <button id="showUndo" data-i18n="undoHistory">Undo history</button>
+      <button id="exportMarkdown" data-i18n="exportMarkdown">Export as Markdown</button>
     </footer>
 
     <details id="settings">
@@ -137,7 +137,7 @@
     </dialog>
 
     <details id="sessions">
-      <summary>Sessions</summary>
+      <summary data-i18n="sessionsTitle">Sessions</summary>
       <form id="saveSessionForm">
         <input type="text" id="sessionName" placeholder="Session name (optional)" />
         <label class="inlineCheck"><input type="checkbox" id="keepTabsOpen" /> Keep tabs open</label>
@@ -148,7 +148,7 @@
     </details>
 
     <details id="mutedPanel">
-      <summary>Muted &amp; learned</summary>
+      <summary data-i18n="mutedTitle">Muted &amp; learned</summary>
       <ul id="mutedList"></ul>
       <button id="resetLearning">Reset learning</button>
     </details>

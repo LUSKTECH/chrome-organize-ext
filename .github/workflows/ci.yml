@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      # Chrome-for-Testing (bundled chromium) + xvfb deps. The fixtures register
+      # the native host themselves. BORG_SKIP_CLI=1 skips the specs that need a
+      # real signed-in AI CLI (unavailable on CI); the local specs still run.
+      - run: npx playwright install --with-deps chromium
+      - run: BORG_SKIP_CLI=1 npm run e2e
+
+  lint:
+    runs-on: ubuntu-latest
+    # Advisory for now (surfaces issues without blocking merges); eslint is
+    # fetched on demand so it need not sit in the committed lockfile.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npx --yes eslint@^9 --no-install . || npx --yes -p eslint@^9 -p eslint-plugin-no-unsanitized@^4 eslint .

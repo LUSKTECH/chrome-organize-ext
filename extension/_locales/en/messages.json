@@ -1,22 +1,23 @@
 {
-  "appName": {
-    "message": "Browser Organizer",
-    "description": "Extension name shown in the browser and store."
-  },
-  "appDesc": {
-    "message": "Group tabs, close forgotten ones, and tidy bookmarks using your local AI CLI. Tab titles and URLs are sent to your CLI's AI provider under your own subscription.",
-    "description": "Extension description shown in the store."
-  },
-  "panelTitle": {
-    "message": "Browser Organizer",
-    "description": "Side-panel heading."
-  },
-  "analyzeButton": {
-    "message": "Analyze my tabs & bookmarks",
-    "description": "Primary action button."
-  },
-  "settingsTitle": {
-    "message": "Settings",
-    "description": "Settings section heading."
-  }
+  "appName": { "message": "Browser Organizer", "description": "Extension name shown in the browser and store." },
+  "appDesc": { "message": "Group tabs, close forgotten ones, and tidy bookmarks using your local AI CLI. Tab titles and URLs are sent to your CLI's AI provider under your own subscription.", "description": "Extension description shown in the store." },
+  "panelTitle": { "message": "Browser Organizer", "description": "Side-panel heading." },
+  "analyzeButton": { "message": "Analyze my tabs & bookmarks", "description": "Primary action button." },
+  "settingsTitle": { "message": "Settings", "description": "Settings section heading." },
+  "featGroupTabs": { "message": "Group tabs", "description": "Run only tab grouping." },
+  "featStaleTabs": { "message": "Find stale tabs", "description": "Run only stale-tab detection." },
+  "featBookmarkImportant": { "message": "Bookmark important", "description": "Run only important-bookmark detection." },
+  "featCleanBookmarks": { "message": "Clean bookmarks", "description": "Run only bookmark cleanup." },
+  "clearList": { "message": "Clear list", "description": "Clear the suggestion list." },
+  "openTabs": { "message": "Open tabs", "description": "Open-tabs panel heading." },
+  "closeSelected": { "message": "Close selected", "description": "Close the selected open tabs." },
+  "commandLabel": { "message": "Tell it what to do", "description": "Natural-language command label." },
+  "runCommand": { "message": "Run command", "description": "Submit the natural-language command." },
+  "applySelected": { "message": "Apply selected", "description": "Apply the checked suggestions." },
+  "applyAll": { "message": "Apply all", "description": "Apply every suggestion." },
+  "undoHistory": { "message": "Undo history", "description": "Open the undo-history dialog." },
+  "exportMarkdown": { "message": "Export as Markdown", "description": "Export the plan as Markdown." },
+  "sessionsTitle": { "message": "Sessions", "description": "Sessions section heading." },
+  "mutedTitle": { "message": "Muted & learned", "description": "Muted/learned section heading." },
+  "onboardingTitle": { "message": "Connect your AI CLI", "description": "Onboarding card heading." }
 }

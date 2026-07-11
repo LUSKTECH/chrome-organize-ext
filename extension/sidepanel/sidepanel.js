@@ -226,8 +226,9 @@ function renderPlan() {
 
 let toastTimer = null;
 async function showUndoToast() {
-  const { entries } = await send({ cmd: 'getUndo' });
-  const runs = groupUndoByRun(entries);
+  const res = await send({ cmd: 'getUndo' });
+  if (!res || !res.ok) return;
+  const runs = groupUndoByRun(res.entries);
   const toast = $('undoToast');
   if (!runs.length) { toast.hidden = true; return; }
   const latest = runs[0];
@@ -302,6 +303,7 @@ $('closeTabsBtn').addEventListener('click', async () => {
   const ids = [...tabSelection];
   if (!ids.length) { setStatus('No tabs selected.'); return; }
   const res = await send({ cmd: 'closeTabs', tabIds: ids });
+  if (!res || !res.ok) { setStatus(`Error: ${(res && res.error) || 'close failed'}`); return; }
   tabSelection = new Set();
   setStatus(`Closed ${res.closed} tab${res.closed === 1 ? '' : 's'}.`);
   await renderTabs();
@@ -335,10 +337,17 @@ function confirmBulk(items) {
   const dlg = $('confirmDialog');
   $('confirmMsg').textContent = `Apply ${items.length} changes — ${destructiveCount(items)} will close, suspend, or delete tabs/bookmarks. This can be undone, but continue?`;
   return new Promise((resolve) => {
-    const done = (val) => { dlg.close(); resolve(val); };
+    const onCancel = () => done(false); // Esc / backdrop dismiss
+    const done = (val) => {
+      dlg.removeEventListener('cancel', onCancel); // don't let listeners stack across calls
+      $('confirmOk').onclick = null;
+      $('confirmCancel').onclick = null;
+      dlg.close();
+      resolve(val);
+    };
     $('confirmOk').onclick = () => done(true);
     $('confirmCancel').onclick = () => done(false);
-    dlg.addEventListener('cancel', () => resolve(false), { once: true }); // Esc / backdrop
+    dlg.addEventListener('cancel', onCancel);
     dlg.showModal();
   });
 }
@@ -431,8 +440,9 @@ $('exportMarkdown').addEventListener('click', async () => {
 });
 
 $('showUndo').addEventListener('click', async () => {
-  const { entries } = await send({ cmd: 'getUndo' });
-  const runs = groupUndoByRun(entries);
+  const undoRes = await send({ cmd: 'getUndo' });
+  if (!undoRes || !undoRes.ok) { setStatus('Could not load undo history.'); return; }
+  const runs = groupUndoByRun(undoRes.entries);
   const list = $('undoList');
   list.textContent = '';
   const dlg = $('undoDialog');
@@ -485,6 +495,11 @@ async function checkHealth() {
   el.classList.toggle('healthOk', ok);
   el.classList.toggle('healthBad', !ok);
   $('run').disabled = !ok;
+  // Gate every backend-dependent control on health, not just Analyze, so the CLI
+  // being down surfaces the onboarding guidance instead of a raw error.
+  for (const btn of $('runOne').querySelectorAll('button[data-feature]')) btn.disabled = !ok;
+  $('commandInput').disabled = !ok;
+  $('commandForm').querySelector('button[type="submit"]').disabled = !ok;
   // First-run onboarding: show the connect card until the CLI is reachable.
   $('onboarding').hidden = ok;
   if (!ok) $('installCmd').textContent = installCommand(chrome.runtime.id);
@@ -556,7 +571,8 @@ $('settingsForm').addEventListener('submit', async (e) => {
 });
 
 async function renderSessions() {
-  const { sessions } = await send({ cmd: 'listSessions' });
+  const sessRes = await send({ cmd: 'listSessions' });
+  const sessions = (sessRes && sessRes.sessions) || [];
   const list = $('sessionList');
   list.textContent = '';
   for (const s of sessions) {
@@ -600,7 +616,8 @@ async function renderSessions() {
 }
 
 $('exportSessions').addEventListener('click', async () => {
-  const { sessions } = await send({ cmd: 'listSessions' });
+  const sessRes = await send({ cmd: 'listSessions' });
+  const sessions = (sessRes && sessRes.sessions) || [];
   const blob = new Blob([JSON.stringify(sessions, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
