@@ -121,9 +121,31 @@ chrome.notifications.onClicked.addListener(async () => {
   await chrome.sidePanel.open({ windowId: win.id });
 });
 
+// A `basic` notification requires an iconUrl (Edge rejects it otherwise). We
+// render one at runtime via OffscreenCanvas so no packaged image file is needed,
+// and memoize it.
+let _iconUrl = null;
+async function notificationIcon() {
+  if (_iconUrl) return _iconUrl;
+  const canvas = new OffscreenCanvas(128, 128);
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#16a34a';
+  ctx.fillRect(0, 0, 128, 128);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 84px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('B', 64, 74);
+  const bytes = new Uint8Array(await (await canvas.convertToBlob({ type: 'image/png' })).arrayBuffer());
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  _iconUrl = `data:image/png;base64,${btoa(bin)}`;
+  return _iconUrl;
+}
+
 async function notify(message) {
   try {
-    await chrome.notifications.create({ type: 'basic', title: 'Browser Organizer', message });
+    await chrome.notifications.create({ type: 'basic', iconUrl: await notificationIcon(), title: 'Browser Organizer', message });
   } catch { /* notifications are best-effort */ }
 }
 
