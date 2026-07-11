@@ -22,6 +22,18 @@ test('UI: "Clean bookmarks" surfaces a duplicate, "Apply all" deletes it, toast 
   await expect.poll(async () => (await searchBookmarks(panel, DUP_URL)).length).toBeGreaterThan(0);
 });
 
+test('UI: "Clear list" empties the suggestions and the stored plan', async ({ panel }) => {
+  await createBookmark(panel, { parentId: '1', title: 'MDN', url: 'https://developer.mozilla.org/en-US/docs/Web' });
+  await createBookmark(panel, { parentId: '1', title: 'MDN copy', url: DUP_URL });
+
+  await panel.click('#runOne button[data-feature="cleanBookmarks"]');
+  await expect(panel.locator('#plan')).toContainText(/Delete bookmark/i, { timeout: 15000 });
+
+  await panel.click('#clearPlan');
+  await expect(panel.locator('#plan')).toBeEmpty();
+  expect((await send(panel, { cmd: 'getPlan' })).items).toEqual([]);
+});
+
 test('UI: edit a proposed group (rename + drop a tab) and apply just that group', async ({ context, server, panel }) => {
   await (await context.newPage()).goto(`${server}/react/docs`);
   await (await context.newPage()).goto(`${server}/react/hooks`);

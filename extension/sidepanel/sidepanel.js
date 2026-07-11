@@ -308,6 +308,14 @@ for (const btn of $('runOne').querySelectorAll('button[data-feature]')) {
   });
 }
 
+$('clearPlan').addEventListener('click', async () => {
+  plan = [];
+  selection = new Set();
+  await send({ cmd: 'updatePlan', items: [] }); // also clear the stored plan so it doesn't reappear on reload
+  renderPlan();
+  setStatus('Cleared.');
+});
+
 $('commandForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const input = $('commandInput');
