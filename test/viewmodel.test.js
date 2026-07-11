@@ -65,6 +65,11 @@ test('healthMessage reports connected vs not', () => {
   assert.match(bad.text, /install-host/);
 });
 
+test('healthMessage labels the connected adapter', () => {
+  assert.deepEqual(healthMessage({ ready: true, version: '1.0', adapter: 'antigravity' }), { ok: true, text: 'Antigravity CLI connected (1.0)' });
+  assert.deepEqual(healthMessage({ ready: true, version: '2.0', adapter: 'kiro' }), { ok: true, text: 'Kiro CLI connected (2.0)' });
+});
+
 test('healthMessage: host-missing error gives the install-host step with the real extension id', () => {
   const m = healthMessage({ ready: false, error: 'Specified native messaging host not found.' }, 'abcdef123');
   assert.equal(m.ok, false);

@@ -67,7 +67,7 @@ chrome.omnibox.onInputEntered.addListener(async (text) => {
   const win = await chrome.windows.getLastFocused();
   const client = createNativeClient();
   try {
-    const items = await runCommand(instruction, { nativeClient: client, windowId: win.id, decisions: settings.decisions || {} });
+    const items = await runCommand(instruction, { nativeClient: client, windowId: win.id, decisions: settings.decisions || {}, adapter: settings.adapter });
     await chrome.storage.local.set({ currentPlan: items });
     await chrome.sidePanel.open({ windowId: win.id });
   } finally {
@@ -160,7 +160,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const settings = await getSettings();
         const nativeClient = createNativeClient();
         try {
-          const items = await runCommand(message.instruction, { nativeClient, windowId: message.windowId ?? null, decisions: settings.decisions || {} });
+          const items = await runCommand(message.instruction, { nativeClient, windowId: message.windowId ?? null, decisions: settings.decisions || {}, adapter: settings.adapter });
           await chrome.storage.local.set({ currentPlan: items });
           sendResponse({ ok: true, items });
         } finally {
@@ -178,8 +178,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         await saveSessions(removeSession(await listSessions(), message.id));
         sendResponse({ ok: true });
       } else if (message.cmd === 'health') {
+        const settings = await getSettings();
         const client = createNativeClient();
-        try { sendResponse({ ok: true, health: await client.request({ type: 'health' }) }); }
+        try { sendResponse({ ok: true, health: await client.request({ type: 'health', adapter: settings.adapter }) }); }
         catch (err) { sendResponse({ ok: true, health: { ready: false, error: String((err && err.message) || err) } }); }
         finally { client.disconnect(); }
       } else {

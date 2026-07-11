@@ -19,6 +19,20 @@ export function tmpBase() {
   return os.tmpdir();
 }
 
+// A minimal, host-controlled environment for spawned CLIs: always PATH and HOME
+// (needed for PATH resolution and persisted login credentials), plus any named
+// auth vars the adapter declares (e.g. GEMINI_API_KEY, KIRO_API_KEY). Env is
+// never taken from an extension message.
+export function hostEnv(extraNames = []) {
+  const env = {};
+  if (process.env.PATH !== undefined) env.PATH = process.env.PATH;
+  if (process.env.HOME !== undefined) env.HOME = process.env.HOME;
+  for (const name of extraNames) {
+    if (process.env[name] !== undefined) env[name] = process.env[name];
+  }
+  return env;
+}
+
 // Only a bounded timeout may come from the message; everything else is discarded.
 // Out-of-range/invalid values fall back to the default; values above the max
 // are clamped down to the max (deviation from the plan's draft implementation,

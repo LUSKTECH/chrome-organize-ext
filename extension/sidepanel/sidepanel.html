@@ -56,6 +56,13 @@
     <details id="settings">
       <summary>Settings</summary>
       <form id="settingsForm">
+        <label>AI backend
+          <select name="adapter">
+            <option value="claude">Claude Code</option>
+            <option value="antigravity">Antigravity (agy)</option>
+            <option value="kiro">Kiro CLI</option>
+          </select>
+        </label>
         <label><input type="checkbox" name="groupTabs" /> Group open tabs by topic</label>
         <label><input type="checkbox" name="staleTabs" /> Suggest closing forgotten tabs</label>
         <label><input type="checkbox" name="importantBookmarks" /> Auto-bookmark important tabs</label>

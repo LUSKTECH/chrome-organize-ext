@@ -44,3 +44,8 @@ test('registry accepts a newly registered adapter', () => {
   registerAdapter({ name: 'fake', async run() { return 'ok'; } });
   assert.equal(getAdapter('fake').name, 'fake');
 });
+
+test('registry includes the antigravity and kiro adapters', () => {
+  assert.equal(getAdapter('antigravity').name, 'antigravity');
+  assert.equal(getAdapter('kiro').name, 'kiro');
+});

@@ -333,6 +333,7 @@ async function checkHealth() {
 async function loadSettings() {
   const s = await getSettings();
   const form = $('settingsForm');
+  form.adapter.value = s.adapter;
   form.groupTabs.checked = s.enabledFeatures.groupTabs;
   form.staleTabs.checked = s.enabledFeatures.staleTabs;
   form.importantBookmarks.checked = s.enabledFeatures.importantBookmarks;
@@ -350,6 +351,7 @@ $('settingsForm').addEventListener('submit', async (e) => {
     await chrome.permissions.request({ origins: ['<all_urls>'] });
   }
   await setSettings({
+    adapter: form.adapter.value,
     enabledFeatures: {
       groupTabs: form.groupTabs.checked,
       staleTabs: form.staleTabs.checked,

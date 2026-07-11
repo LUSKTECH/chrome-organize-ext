@@ -58,23 +58,30 @@ export function registryCommands(browsers, manifestPath) {
 
 // Resolves the absolute path to the `claude` CLI using the platform's lookup
 // tool (which/where). Host-side only — never influenced by extension messages.
-export function resolveCliPath(platform = process.platform, spawnSyncFn = spawnSync) {
+export function resolveCliPath(platform = process.platform, spawnSyncFn = spawnSync, binary = 'claude') {
   const finder = platform === 'win32' ? 'where' : 'which';
   try {
-    const res = spawnSyncFn(finder, ['claude'], { encoding: 'utf8' });
+    const res = spawnSyncFn(finder, [binary], { encoding: 'utf8' });
     const line = String(res.stdout || '').split(/\r?\n/).find(Boolean);
     return line ? line.trim() : null;
   } catch { return null; }
 }
 
-export function buildLauncherScript({ platform, nodePath, hostEntry, cliPath }) {
+export function buildLauncherScript({ platform, nodePath, hostEntry, cliPath, agyPath, kiroPath }) {
+  // Bake absolute CLI paths (when found) so the host resolves each adapter's
+  // binary even under a bare browser launch environment.
+  const vars = [
+    ['BROWSER_ORGANIZER_CLI', cliPath],
+    ['BROWSER_ORGANIZER_ANTIGRAVITY_CMD', agyPath],
+    ['BROWSER_ORGANIZER_KIRO_CMD', kiroPath],
+  ].filter(([, v]) => v);
   if (platform === 'win32') {
-    const cli = cliPath ? `set "BROWSER_ORGANIZER_CLI=${cliPath}"\r\n` : '';
-    return `@echo off\r\n${cli}"${nodePath}" "${hostEntry}" %*\r\n`;
+    const sets = vars.map(([k, v]) => `set "${k}=${v}"\r\n`).join('');
+    return `@echo off\r\n${sets}"${nodePath}" "${hostEntry}" %*\r\n`;
   }
-  const cli = cliPath ? `BROWSER_ORGANIZER_CLI="${cliPath}"\nexport BROWSER_ORGANIZER_CLI\n` : '';
-  // Prepend common CLI locations so the host finds node/claude even under a bare browser PATH.
-  return `#!/bin/sh\nexport PATH="$HOME/.local/bin:/usr/local/bin:/opt/homebrew/bin:$PATH"\n${cli}exec "${nodePath}" "${hostEntry}"\n`;
+  const exports = vars.map(([k, v]) => `${k}="${v}"\nexport ${k}\n`).join('');
+  // Prepend common CLI locations so the host finds node and the CLIs even under a bare browser PATH.
+  return `#!/bin/sh\nexport PATH="$HOME/.local/bin:/usr/local/bin:/opt/homebrew/bin:$PATH"\n${exports}exec "${nodePath}" "${hostEntry}"\n`;
 }
 
 // Writes a launcher that calls node (absolute path) on host.js, then registers
@@ -86,8 +93,10 @@ export function install({ extensionId, browsers, platform = process.platform, ho
 
   const isWin = platform === 'win32';
   const cliPath = resolveCliPath(platform);
+  const agyPath = resolveCliPath(platform, spawnSync, 'agy');
+  const kiroPath = resolveCliPath(platform, spawnSync, 'kiro-cli');
   const launcher = path.join(nativeHostDir, isWin ? 'run.bat' : 'run.sh');
-  fs.writeFileSync(launcher, buildLauncherScript({ platform, nodePath, hostEntry, cliPath }));
+  fs.writeFileSync(launcher, buildLauncherScript({ platform, nodePath, hostEntry, cliPath, agyPath, kiroPath }));
   if (!isWin) fs.chmodSync(launcher, 0o700);
 
   if (isWin) {

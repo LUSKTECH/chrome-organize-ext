@@ -47,8 +47,14 @@ export function itemsForAction(items, action) {
   return items.filter((it) => it.action === action);
 }
 
+const ADAPTER_LABELS = { claude: 'Claude CLI', antigravity: 'Antigravity CLI', kiro: 'Kiro CLI' };
+const ADAPTER_CMDS = { claude: 'claude', antigravity: 'agy', kiro: 'kiro-cli' };
+
 export function healthMessage(health, extensionId = '<your-extension-id>') {
-  if (health && health.ready) return { ok: true, text: `Claude CLI connected (${health.version || 'ok'})` };
+  const key = health && health.adapter;
+  const label = ADAPTER_LABELS[key] || 'Claude CLI';
+  const cmd = ADAPTER_CMDS[key] || 'claude';
+  if (health && health.ready) return { ok: true, text: `${label} connected (${health.version || 'ok'})` };
   const err = String((health && health.error) || '');
   // Two very different causes need two different fixes. Native-messaging
   // connection failures ("host not found/disconnected") mean the helper isn't
@@ -59,7 +65,7 @@ export function healthMessage(health, extensionId = '<your-extension-id>') {
     return {
       ok: false,
       text: [
-        "Can't reach the helper app that runs Claude for this extension.",
+        `Can't reach the helper app that runs your AI CLI (${label}).`,
         'Fix: open a terminal in the extension’s project folder and run:',
         `    npm run install-host ${extensionId} chrome,edge`,
         'Then click the reload icon on this extension and reopen this panel.',
@@ -69,9 +75,9 @@ export function healthMessage(health, extensionId = '<your-extension-id>') {
   return {
     ok: false,
     text: [
-      'The helper app is running, but the Claude CLI did not start.',
-      'Fix: make sure the "claude" command is installed and signed in',
-      '(run "claude --version" in a terminal), then reopen this panel.',
+      `The helper app is running, but ${label} did not start.`,
+      `Fix: make sure the "${cmd}" command is installed and signed in`,
+      `(run "${cmd} --version" in a terminal), then reopen this panel.`,
     ].join('\n'),
   };
 }

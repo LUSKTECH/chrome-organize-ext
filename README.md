@@ -6,8 +6,26 @@ clean up stale/dead/duplicate bookmarks. All page/tab/bookmark data stays on you
 
 ## Requirements
 - Node.js 20+
-- The `claude` CLI installed and signed in (`claude` runs headless via `claude -p`)
+- One supported AI CLI installed and signed in (see **AI backends** below)
 - Chrome 116+ or Edge (Chromium)
+
+## AI backends
+The extension talks to a local AI CLI through the native host. Pick one in
+**Settings → AI backend**; the host runs it headlessly. All keep processing on
+your machine (only the CLI's own subscription traffic leaves).
+
+| Backend | CLI | Invocation | Auth |
+|---------|-----|-----------|------|
+| **Claude Code** (default) | `claude` | `claude -p --output-format json` | persisted `claude` login |
+| **Antigravity** | `agy` | `agy -p "<prompt>" --yes --no-color` | persisted `agy` login, or `GEMINI_API_KEY` / `ANTIGRAVITY_API_KEY` |
+| **Kiro** | `kiro-cli` | `kiro-cli chat --no-interactive "<prompt>"` | `KIRO_API_KEY` (Kiro Pro+) |
+
+The installer bakes the absolute path of each CLI it finds into the launcher. To
+override a binary location, set `BROWSER_ORGANIZER_CLI` (claude),
+`BROWSER_ORGANIZER_ANTIGRAVITY_CMD`, or `BROWSER_ORGANIZER_KIRO_CMD`. Antigravity
+and Kiro print plain text; the extension's prompts already request strict JSON,
+which the host extracts. For CLIs that need an API key, export it in the
+environment the browser (and thus the host) is launched from.
 
 ## Install (developer / unpacked)
 1. Load the extension:

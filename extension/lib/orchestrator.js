@@ -40,6 +40,7 @@ export async function buildPlan(deps) {
   const items = [];
   const f = { ...settings.enabledFeatures, ...(deps.features || {}) };
   const rules = decisionRules(settings.decisions || {}).keep.join('; ');
+  const adapter = settings.adapter || 'claude';
 
   step('Finding duplicate tabs');
   if (shouldCancel()) return [];
@@ -50,7 +51,7 @@ export async function buildPlan(deps) {
   step('Grouping tabs');
   if (shouldCancel()) return items;
   if (f.groupTabs && tabs.length) {
-    const r = await nativeClient.request({ type: 'organize', task: 'group', payload: { tabs: projectTabsForHost(tabs), rules } });
+    const r = await nativeClient.request({ type: 'organize', task: 'group', adapter, payload: { tabs: projectTabsForHost(tabs), rules } });
     items.push(...mapGroupResult(r.groups, byId));
   }
 
@@ -60,7 +61,7 @@ export async function buildPlan(deps) {
     const stale = tabs.filter((t) => t.idleDays >= settings.staleTabDays);
     if (stale.length) {
       const candidateIds = new Set(stale.map((t) => t.tabId));
-      const r = await nativeClient.request({ type: 'organize', task: 'stale', payload: { tabs: projectTabsForHost(stale), thresholdDays: settings.staleTabDays, rules } });
+      const r = await nativeClient.request({ type: 'organize', task: 'stale', adapter, payload: { tabs: projectTabsForHost(stale), thresholdDays: settings.staleTabDays, rules } });
       items.push(...mapStaleResult(r.stale, byId, candidateIds));
     }
   }
@@ -68,7 +69,7 @@ export async function buildPlan(deps) {
   step('Finding tabs to bookmark');
   if (shouldCancel()) return items;
   if (f.importantBookmarks && tabs.length) {
-    const r = await nativeClient.request({ type: 'organize', task: 'important', payload: { tabs: projectTabsForHost(tabs), rules } });
+    const r = await nativeClient.request({ type: 'organize', task: 'important', adapter, payload: { tabs: projectTabsForHost(tabs), rules } });
     items.push(...mapImportantResult(r.important, byId));
   }
 
@@ -102,13 +103,13 @@ export async function buildPlan(deps) {
 // maps the model's response into the same PlanItem shape as buildPlan, so it
 // goes through the exact same review/apply/undo path.
 export async function runCommand(instruction, deps) {
-  const { nativeClient, chromeApi = chrome, now = Date.now(), windowId = null, decisions = {} } = deps;
+  const { nativeClient, chromeApi = chrome, now = Date.now(), windowId = null, decisions = {}, adapter = 'claude' } = deps;
   const activity = (await chromeApi.storage.local.get('tabActivity')).tabActivity || {};
   const tabs = await collectTabs(chromeApi, activity, now, windowId);
   const byId = indexById(tabs);
   const candidateIds = new Set(tabs.map((t) => t.tabId));
   const rules = decisionRules(decisions).keep.join('; ');
-  const r = await nativeClient.request({ type: 'command', payload: { instruction, tabs: projectTabsForHost(tabs), rules } });
+  const r = await nativeClient.request({ type: 'command', adapter, payload: { instruction, tabs: projectTabsForHost(tabs), rules } });
   return [
     ...mapGroupResult(r.groups, byId),
     ...mapStaleResult(r.close, byId, candidateIds),

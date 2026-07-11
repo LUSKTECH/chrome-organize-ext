@@ -65,6 +65,7 @@ test('UI: edit a proposed group (rename + drop a tab) and apply just that group'
 test('UI: settings form persists auto mode and thresholds', async ({ panel }) => {
   await panel.click('#settings summary');
   const form = panel.locator('#settingsForm');
+  await form.locator('select[name="adapter"]').selectOption('kiro');
   await form.locator('input[name="groupTabs"]').uncheck();
   await form.locator('input[name="autoMode"]').check();
   await form.locator('input[name="staleTabDays"]').fill('30');
@@ -72,6 +73,7 @@ test('UI: settings form persists auto mode and thresholds', async ({ panel }) =>
   await expect(panel.locator('#status')).toContainText(/Settings saved/i);
 
   const settings = await panel.evaluate(() => new Promise((r) => chrome.storage.sync.get('settings', ({ settings }) => r(settings))));
+  expect(settings.adapter).toBe('kiro');
   expect(settings.automationMode).toBe('auto');
   expect(settings.staleTabDays).toBe(30);
   expect(settings.enabledFeatures.groupTabs).toBe(false);

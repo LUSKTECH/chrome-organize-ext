@@ -38,6 +38,21 @@ test('applyItems applies each item, records undo, and reports failures', async (
   assert.equal(recorded.length, 1);
 });
 
+test('buildPlan includes the configured adapter in native requests', async () => {
+  let seen = null;
+  const stored = {};
+  const chromeApi = {
+    storage: { local: { async get(k) { return typeof k === 'string' ? { [k]: stored[k] } : { ...stored }; }, async set(o) { Object.assign(stored, o); } } },
+    tabs: { async query() { return [{ id: 1, url: 'https://a.com', windowId: 1, index: 0 }]; } },
+    bookmarks: { async getTree() { return []; } },
+    history: { async getVisits() { return []; } },
+  };
+  const nativeClient = { request: async (m) => { seen = m; return { groups: [], stale: [], important: [] }; } };
+  const settings = { adapter: 'kiro', enabledFeatures: { groupTabs: true, staleTabs: false, importantBookmarks: false, cleanBookmarks: false }, staleTabDays: 14, staleBookmarkDays: 180, deadLinkBatchSize: 200 };
+  await buildPlan({ settings, nativeClient, chromeApi, now: 1 });
+  assert.equal(seen.adapter, 'kiro');
+});
+
 test('buildPlan reconciles activity and persists it (drops closed tabs)', async () => {
   const stored = { tabActivity: { 1: { firstSeen: 0, lastActive: 0 }, 999: { firstSeen: 0, lastActive: 0 } } };
   const chromeApi = {
