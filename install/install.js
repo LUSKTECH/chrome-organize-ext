@@ -67,13 +67,16 @@ export function resolveCliPath(platform = process.platform, spawnSyncFn = spawnS
   } catch { return null; }
 }
 
-export function buildLauncherScript({ platform, nodePath, hostEntry, cliPath, agyPath, kiroPath }) {
+export function buildLauncherScript({ platform, nodePath, hostEntry, cliPath, agyPath, kiroPath, copilotPath, codexPath, ollamaPath }) {
   // Bake absolute CLI paths (when found) so the host resolves each adapter's
   // binary even under a bare browser launch environment.
   const vars = [
     ['BROWSER_ORGANIZER_CLI', cliPath],
     ['BROWSER_ORGANIZER_ANTIGRAVITY_CMD', agyPath],
     ['BROWSER_ORGANIZER_KIRO_CMD', kiroPath],
+    ['BROWSER_ORGANIZER_COPILOT_CMD', copilotPath],
+    ['BROWSER_ORGANIZER_CODEX_CMD', codexPath],
+    ['BROWSER_ORGANIZER_OLLAMA_CMD', ollamaPath],
   ].filter(([, v]) => v);
   if (platform === 'win32') {
     const sets = vars.map(([k, v]) => `set "${k}=${v}"\r\n`).join('');
@@ -95,8 +98,11 @@ export function install({ extensionId, browsers, platform = process.platform, ho
   const cliPath = resolveCliPath(platform);
   const agyPath = resolveCliPath(platform, spawnSync, 'agy');
   const kiroPath = resolveCliPath(platform, spawnSync, 'kiro-cli');
+  const copilotPath = resolveCliPath(platform, spawnSync, 'copilot');
+  const codexPath = resolveCliPath(platform, spawnSync, 'codex');
+  const ollamaPath = resolveCliPath(platform, spawnSync, 'ollama');
   const launcher = path.join(nativeHostDir, isWin ? 'run.bat' : 'run.sh');
-  fs.writeFileSync(launcher, buildLauncherScript({ platform, nodePath, hostEntry, cliPath, agyPath, kiroPath }));
+  fs.writeFileSync(launcher, buildLauncherScript({ platform, nodePath, hostEntry, cliPath, agyPath, kiroPath, copilotPath, codexPath, ollamaPath }));
   if (!isWin) fs.chmodSync(launcher, 0o700);
 
   if (isWin) {

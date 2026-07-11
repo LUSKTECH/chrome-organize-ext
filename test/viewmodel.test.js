@@ -68,6 +68,9 @@ test('healthMessage reports connected vs not', () => {
 test('healthMessage labels the connected adapter', () => {
   assert.deepEqual(healthMessage({ ready: true, version: '1.0', adapter: 'antigravity' }), { ok: true, text: 'Antigravity CLI connected (1.0)' });
   assert.deepEqual(healthMessage({ ready: true, version: '2.0', adapter: 'kiro' }), { ok: true, text: 'Kiro CLI connected (2.0)' });
+  assert.deepEqual(healthMessage({ ready: true, version: '1.3', adapter: 'copilot' }), { ok: true, text: 'Copilot CLI connected (1.3)' });
+  assert.deepEqual(healthMessage({ ready: true, version: '0.9', adapter: 'codex' }), { ok: true, text: 'Codex CLI connected (0.9)' });
+  assert.deepEqual(healthMessage({ ready: true, version: '0.5', adapter: 'ollama' }), { ok: true, text: 'Ollama connected (0.5)' });
 });
 
 test('healthMessage: host-missing error gives the install-host step with the real extension id', () => {

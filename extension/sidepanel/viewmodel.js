@@ -47,8 +47,8 @@ export function itemsForAction(items, action) {
   return items.filter((it) => it.action === action);
 }
 
-const ADAPTER_LABELS = { claude: 'Claude CLI', antigravity: 'Antigravity CLI', kiro: 'Kiro CLI' };
-const ADAPTER_CMDS = { claude: 'claude', antigravity: 'agy', kiro: 'kiro-cli' };
+const ADAPTER_LABELS = { claude: 'Claude CLI', antigravity: 'Antigravity CLI', kiro: 'Kiro CLI', copilot: 'Copilot CLI', codex: 'Codex CLI', ollama: 'Ollama' };
+const ADAPTER_CMDS = { claude: 'claude', antigravity: 'agy', kiro: 'kiro-cli', copilot: 'copilot', codex: 'codex', ollama: 'ollama' };
 
 export function healthMessage(health, extensionId = '<your-extension-id>') {
   const key = health && health.adapter;

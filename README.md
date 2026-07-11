@@ -19,13 +19,20 @@ your machine (only the CLI's own subscription traffic leaves).
 | **Claude Code** (default) | `claude` | `claude -p --output-format json` | persisted `claude` login |
 | **Antigravity** | `agy` | `agy -p "<prompt>" --yes --no-color` | persisted `agy` login, or `GEMINI_API_KEY` / `ANTIGRAVITY_API_KEY` |
 | **Kiro** | `kiro-cli` | `kiro-cli chat --no-interactive "<prompt>"` | `KIRO_API_KEY` (Kiro Pro+) |
+| **GitHub Copilot** | `copilot` | `copilot -p "<prompt>" -s --no-ask-user` | Copilot subscription via `COPILOT_GITHUB_TOKEN` / `GH_TOKEN` / existing `gh` login |
+| **OpenAI Codex** | `codex` | `codex exec --skip-git-repo-check "<prompt>"` | persisted ChatGPT login, or `OPENAI_API_KEY` |
+| **Ollama** (local) | `ollama` | `ollama run <model>` (prompt on stdin) | none — fully local; nothing leaves the machine |
 
 The installer bakes the absolute path of each CLI it finds into the launcher. To
-override a binary location, set `BROWSER_ORGANIZER_CLI` (claude),
-`BROWSER_ORGANIZER_ANTIGRAVITY_CMD`, or `BROWSER_ORGANIZER_KIRO_CMD`. Antigravity
-and Kiro print plain text; the extension's prompts already request strict JSON,
+override a binary location, set the matching env var: `BROWSER_ORGANIZER_CLI`
+(claude), `BROWSER_ORGANIZER_ANTIGRAVITY_CMD`, `BROWSER_ORGANIZER_KIRO_CMD`,
+`BROWSER_ORGANIZER_COPILOT_CMD`, `BROWSER_ORGANIZER_CODEX_CMD`, or
+`BROWSER_ORGANIZER_OLLAMA_CMD`. The Ollama model is set with
+`BROWSER_ORGANIZER_OLLAMA_MODEL` (default `llama3.2`). Every backend except
+Claude prints plain text; the extension's prompts already request strict JSON,
 which the host extracts. For CLIs that need an API key, export it in the
-environment the browser (and thus the host) is launched from.
+environment the browser (and thus the host) is launched from. **Ollama** runs
+models locally, so with it selected no tab/bookmark data leaves your machine.
 
 ## Install (developer / unpacked)
 1. Load the extension:
