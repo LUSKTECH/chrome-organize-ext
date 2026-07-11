@@ -3,6 +3,7 @@ import { ignoreKey } from '../lib/orchestrator.js';
 import {
   summarize, groupByAction, toggleSelection, selectedItems, actionLabel,
   excludeMember, renameGroup, recolorGroup, healthMessage, progressLabel, groupUndoByRun, toMarkdown, filterTabs,
+  describeIgnoreKey, installCommand, moveMember,
 } from './viewmodel.js';
 
 const GROUP_COLORS = ['grey', 'blue', 'red', 'yellow', 'green', 'pink', 'purple', 'cyan', 'orange'];
@@ -97,6 +98,27 @@ function renderGroupItem(item) {
     const mLi = document.createElement('li');
     const label = document.createElement('span');
     label.textContent = m.title || m.url;
+    // "Move to" another proposed group.
+    const otherGroups = plan.filter((i) => i.action === 'groupTabs' && i.itemId !== item.itemId);
+    const moveSel = document.createElement('select');
+    const placeholder = document.createElement('option');
+    placeholder.value = ''; placeholder.textContent = 'Move to…';
+    moveSel.appendChild(placeholder);
+    for (const g of otherGroups) {
+      const opt = document.createElement('option');
+      opt.value = g.itemId; opt.textContent = g.data.groupName;
+      moveSel.appendChild(opt);
+    }
+    moveSel.addEventListener('change', () => {
+      if (!moveSel.value) return;
+      expandedGroups.add(item.itemId);
+      expandedGroups.add(moveSel.value);
+      plan = moveMember(plan, item.itemId, moveSel.value, m.tabId);
+      send({ cmd: 'updatePlan', items: plan });
+      renderPlan();
+    });
+    if (!otherGroups.length) moveSel.style.display = 'none';
+
     const removeBtn = document.createElement('button');
     removeBtn.type = 'button';
     removeBtn.textContent = 'Remove';
@@ -104,7 +126,7 @@ function renderGroupItem(item) {
       expandedGroups.add(item.itemId);
       updatePlanItem(item.itemId, (it) => excludeMember(it, m.tabId));
     });
-    mLi.append(label, removeBtn);
+    mLi.append(label, moveSel, removeBtn);
     memberList.appendChild(mLi);
   }
   details.appendChild(memberList);
@@ -377,8 +399,17 @@ async function checkHealth() {
   el.classList.toggle('healthOk', ok);
   el.classList.toggle('healthBad', !ok);
   $('run').disabled = !ok;
+  // First-run onboarding: show the connect card until the CLI is reachable.
+  $('onboarding').hidden = ok;
+  if (!ok) $('installCmd').textContent = installCommand(chrome.runtime.id);
   return ok;
 }
+
+$('copyCmd').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(installCommand(chrome.runtime.id)); setStatus('Command copied.'); }
+  catch { setStatus('Copy failed — select and copy manually.'); }
+});
+$('recheck').addEventListener('click', () => checkHealth());
 
 async function loadSettings() {
   const s = await getSettings();
@@ -439,6 +470,23 @@ async function renderSessions() {
       await send({ cmd: 'restoreSession', id: s.sessionId });
       setStatus(`Restored "${s.name}".`);
     });
+    const renameBtn = document.createElement('button');
+    renameBtn.type = 'button';
+    renameBtn.textContent = 'Rename';
+    renameBtn.addEventListener('click', async () => {
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = s.name;
+      const commit = async () => {
+        const name = input.value.trim();
+        if (name && name !== s.name) await send({ cmd: 'renameSession', id: s.sessionId, name });
+        renderSessions();
+      };
+      input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') commit(); });
+      input.addEventListener('blur', commit);
+      li.replaceChild(input, label);
+      input.focus();
+    });
     const deleteBtn = document.createElement('button');
     deleteBtn.type = 'button';
     deleteBtn.textContent = 'Delete';
@@ -446,17 +494,64 @@ async function renderSessions() {
       await send({ cmd: 'deleteSession', id: s.sessionId });
       renderSessions();
     });
-    li.append(label, restoreBtn, deleteBtn);
+    li.append(label, restoreBtn, renameBtn, deleteBtn);
     list.appendChild(li);
   }
 }
 
+$('exportSessions').addEventListener('click', async () => {
+  const { sessions } = await send({ cmd: 'listSessions' });
+  const blob = new Blob([JSON.stringify(sessions, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'browser-organizer-sessions.json'; a.click();
+  URL.revokeObjectURL(url);
+  setStatus(`Exported ${sessions.length} session${sessions.length === 1 ? '' : 's'}.`);
+});
+
+// ---- Muted & learned management ----
+async function renderMuted() {
+  const s = await getSettings();
+  const list = $('mutedList');
+  list.textContent = '';
+  const ignore = s.ignore || [];
+  if (!ignore.length) {
+    const li = document.createElement('li');
+    li.className = 'hint';
+    li.textContent = 'Nothing muted.';
+    list.appendChild(li);
+  }
+  for (const key of ignore) {
+    const li = document.createElement('li');
+    const span = document.createElement('span');
+    span.textContent = describeIgnoreKey(key);
+    span.title = key;
+    const unmute = document.createElement('button');
+    unmute.type = 'button';
+    unmute.textContent = 'Unmute';
+    unmute.addEventListener('click', async () => {
+      const cur = await getSettings();
+      await setSettings({ ignore: (cur.ignore || []).filter((k) => k !== key) });
+      renderMuted();
+    });
+    li.append(span, unmute);
+    list.appendChild(li);
+  }
+}
+
+$('mutedPanel').addEventListener('toggle', () => { if ($('mutedPanel').open) renderMuted(); });
+$('resetLearning').addEventListener('click', async () => {
+  await setSettings({ decisions: {} });
+  setStatus('Learning reset.');
+});
+
 $('saveSessionForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const nameInput = $('sessionName');
-  await send({ cmd: 'saveSession', name: nameInput.value.trim() });
+  const keepOpen = $('keepTabsOpen').checked;
+  await send({ cmd: 'saveSession', name: nameInput.value.trim(), close: !keepOpen });
   nameInput.value = '';
-  setStatus('Session saved and tabs closed.');
+  setStatus(keepOpen ? 'Session saved (tabs kept open).' : 'Session saved and tabs closed.');
   await renderSessions();
 });
 

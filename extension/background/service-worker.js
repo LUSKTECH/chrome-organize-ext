@@ -4,7 +4,7 @@ import { createNativeClient } from '../lib/native-client.js';
 import { buildPlan, partitionForApply, applyItems, runCommand, recordDecision } from '../lib/orchestrator.js';
 import { applyItem } from '../lib/executor.js';
 import { recordUndo, reverseEntry, pruneUndo, getUndoLog } from '../lib/undo-log.js';
-import { listSessions, saveCurrentWindowSession, restoreSession, removeSession, saveSessions } from '../lib/sessions.js';
+import { listSessions, saveCurrentWindowSession, restoreSession, removeSession, saveSessions, renameSession } from '../lib/sessions.js';
 import { parseOmnibox } from '../lib/omnibox.js';
 import { digestText } from '../sidepanel/viewmodel.js';
 
@@ -203,8 +203,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           nativeClient.disconnect();
         }
       } else if (message.cmd === 'saveSession') {
-        const session = await saveCurrentWindowSession(message.name, { chrome });
+        const session = await saveCurrentWindowSession(message.name, { chrome, close: message.close !== false });
         sendResponse({ ok: true, session });
+      } else if (message.cmd === 'renameSession') {
+        await saveSessions(renameSession(await listSessions(), message.id, message.name));
+        sendResponse({ ok: true });
       } else if (message.cmd === 'listSessions') {
         sendResponse({ ok: true, sessions: await listSessions() });
       } else if (message.cmd === 'restoreSession') {

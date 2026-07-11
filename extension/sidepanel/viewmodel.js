@@ -8,6 +8,36 @@ const LABELS = {
 
 export function actionLabel(action) { return LABELS[action] || action; }
 
+// Human-readable label for an ignore-list key ("closeTab:https://a.com/x").
+export function describeIgnoreKey(key) {
+  const idx = String(key).indexOf(':');
+  if (idx < 0) return String(key);
+  return `${actionLabel(key.slice(0, idx))}: ${key.slice(idx + 1)}`;
+}
+
+// The exact host-registration command for the onboarding screen.
+export function installCommand(extensionId) {
+  return `npm run install-host ${extensionId} chrome,edge`;
+}
+
+// Reassign a member tab from one proposed group to another (used by the editor).
+export function moveMember(items, fromId, toId, tabId) {
+  const from = items.find((i) => i.itemId === fromId);
+  const member = from && from.data.members && from.data.members.find((m) => m.tabId === tabId);
+  if (!member) return items;
+  return items.map((it) => {
+    if (it.itemId === fromId) {
+      const members = it.data.members.filter((m) => m.tabId !== tabId);
+      return { ...it, data: { ...it.data, members, tabIds: members.map((m) => m.tabId) } };
+    }
+    if (it.itemId === toId) {
+      const members = [...it.data.members, member];
+      return { ...it, data: { ...it.data, members, tabIds: members.map((m) => m.tabId) } };
+    }
+    return it;
+  });
+}
+
 // Live client-side filter over open tabs (no AI): matches title, url, or host.
 export function filterTabs(tabs, query) {
   const q = String(query || '').trim().toLowerCase();

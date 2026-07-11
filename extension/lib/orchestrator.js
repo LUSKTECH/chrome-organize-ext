@@ -51,8 +51,13 @@ export async function buildPlan(deps) {
   step('Grouping tabs');
   if (shouldCancel()) return finalizePlan(items, settings);
   if (f.groupTabs && tabs.length) {
-    const r = await nativeClient.request({ type: 'organize', task: 'group', adapter, payload: { tabs: projectTabsForHost(tabs), rules } });
-    items.push(...mapGroupResult(r.groups, byId));
+    // Respect existing Chrome tab groups: only offer to group currently-ungrouped
+    // tabs, so re-running doesn't propose new groups over already-organized ones.
+    const ungrouped = tabs.filter((t) => (t.groupId ?? -1) === -1);
+    if (ungrouped.length) {
+      const r = await nativeClient.request({ type: 'organize', task: 'group', adapter, payload: { tabs: projectTabsForHost(ungrouped), rules } });
+      items.push(...mapGroupResult(r.groups, byId));
+    }
   }
 
   step('Finding forgotten tabs');

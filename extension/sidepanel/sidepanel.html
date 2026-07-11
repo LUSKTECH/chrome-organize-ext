@@ -34,6 +34,17 @@
       </div>
     </header>
 
+    <section id="onboarding" hidden>
+      <h2>Connect your AI CLI</h2>
+      <p>Browser Organizer runs a local AI CLI to organize your tabs and bookmarks. Register the helper once in a terminal:</p>
+      <pre id="installCmd"></pre>
+      <div class="onboardingActions">
+        <button id="copyCmd">Copy command</button>
+        <button id="recheck" class="primary">Recheck connection</button>
+      </div>
+      <p class="hint">Then pick your AI backend in Settings below (Claude, Antigravity, Kiro, Copilot, Codex, or local Ollama).</p>
+    </section>
+
     <details id="tabsPanel">
       <summary>Open tabs</summary>
       <input type="text" id="tabFilter" placeholder="Filter by title, URL, or domain" />
@@ -109,9 +120,17 @@
       <summary>Sessions</summary>
       <form id="saveSessionForm">
         <input type="text" id="sessionName" placeholder="Session name (optional)" />
-        <button type="submit">Save this window as a session</button>
+        <label class="inlineCheck"><input type="checkbox" id="keepTabsOpen" /> Keep tabs open</label>
+        <button type="submit">Save window as session</button>
       </form>
       <ul id="sessionList"></ul>
+      <button id="exportSessions">Export sessions (JSON)</button>
+    </details>
+
+    <details id="mutedPanel">
+      <summary>Muted &amp; learned</summary>
+      <ul id="mutedList"></ul>
+      <button id="resetLearning">Reset learning</button>
     </details>
 
     <template id="itemTemplate">

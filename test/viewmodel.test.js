@@ -8,7 +8,26 @@ const items = [
   { itemId: 'c', action: 'groupTabs' },
 ];
 
-import { filterTabs } from '../extension/sidepanel/viewmodel.js';
+import { filterTabs, describeIgnoreKey, installCommand, moveMember } from '../extension/sidepanel/viewmodel.js';
+
+test('describeIgnoreKey renders a human label', () => {
+  assert.equal(describeIgnoreKey('closeTab:https://a.com/x'), 'Close tab: https://a.com/x');
+  assert.equal(describeIgnoreKey('deleteBookmark:https://b.com'), 'Delete bookmark: https://b.com');
+});
+
+test('installCommand embeds the extension id', () => {
+  assert.equal(installCommand('abc123'), 'npm run install-host abc123 chrome,edge');
+});
+
+test('moveMember reassigns a tab between proposed groups', () => {
+  const items = [
+    { itemId: 'g0', action: 'groupTabs', data: { members: [{ tabId: 1, title: 'A' }, { tabId: 2, title: 'B' }], tabIds: [1, 2] } },
+    { itemId: 'g1', action: 'groupTabs', data: { members: [{ tabId: 3, title: 'C' }], tabIds: [3] } },
+  ];
+  const out = moveMember(items, 'g0', 'g1', 2);
+  assert.deepEqual(out.find((i) => i.itemId === 'g0').data.tabIds, [1]);
+  assert.deepEqual(out.find((i) => i.itemId === 'g1').data.tabIds.sort(), [2, 3]);
+});
 
 test('filterTabs matches title, url, or host case-insensitively; empty query returns all', () => {
   const tabs = [

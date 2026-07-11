@@ -15,6 +15,26 @@ test('applyWhitelist drops destructive actions on protected domains (and subdoma
   assert.deepEqual(out.map((i) => i.data.url || 'group'), ['https://random.com', 'group']);
 });
 
+test('buildPlan excludes already-grouped tabs from group candidates (respects existing groups)', async () => {
+  const stored = {};
+  const chromeApi = {
+    storage: { local: { async get(k) { return typeof k === 'string' ? { [k]: stored[k] } : { ...stored }; }, async set(o) { Object.assign(stored, o); } } },
+    tabs: { async query() { return [
+      { id: 1, url: 'https://a.com', windowId: 1, index: 0, groupId: 7 },   // already in a group
+      { id: 2, url: 'https://b.com', windowId: 1, index: 1, groupId: -1 },
+      { id: 3, url: 'https://c.com', windowId: 1, index: 2, groupId: -1 },
+    ]; } },
+    bookmarks: { async getTree() { return []; } },
+    history: { async getVisits() { return []; } },
+  };
+  let groupPayload = null;
+  const nativeClient = { request: async (m) => { if (m.task === 'group') groupPayload = m.payload; return { groups: [], stale: [], important: [] }; } };
+  const settings = { adapter: 'claude', enabledFeatures: { groupTabs: true, staleTabs: false, importantBookmarks: false, cleanBookmarks: false, dupeTabs: false }, staleTabDays: 14, staleBookmarkDays: 180, deadLinkBatchSize: 200 };
+  await buildPlan({ settings, nativeClient, chromeApi, now: 1 });
+  const ids = groupPayload.tabs.map((t) => t.tabId).sort();
+  assert.deepEqual(ids, [2, 3]); // the grouped tab (1) is excluded
+});
+
 test('buildPlan excludes pinned tabs from stale close candidates', async () => {
   const stored = {};
   const chromeApi = {

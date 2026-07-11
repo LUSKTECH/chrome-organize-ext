@@ -31,3 +31,18 @@ test('saves the current window as a session and restores its tabs', async ({ con
   await expect.poll(() => countTabsWithUrl(panel, u1)).toBe(1);
   await expect.poll(() => countTabsWithUrl(panel, u2)).toBe(1);
 });
+
+test('UI: "Keep tabs open" saves a session without closing the tabs', async ({ context, server, panel }) => {
+  const u = `${server}/react/router`;
+  await (await context.newPage()).goto(u);
+  await panel.reload({ waitUntil: 'domcontentloaded' });
+
+  await panel.click('#sessions summary');
+  await panel.check('#keepTabsOpen');
+  await panel.fill('#sessionName', 'Kept');
+  await panel.click('#saveSessionForm button[type="submit"]');
+
+  // The session is saved, but the tab stays open.
+  await expect.poll(async () => (await send(panel, { cmd: 'listSessions' })).sessions.some((s) => s.name === 'Kept')).toBe(true);
+  expect(await countTabsWithUrl(panel, u)).toBe(1);
+});
