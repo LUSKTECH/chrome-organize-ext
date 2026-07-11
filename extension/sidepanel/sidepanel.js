@@ -452,6 +452,10 @@ $('settingsForm').addEventListener('submit', async (e) => {
     automationMode: form.autoMode.checked ? 'auto' : 'review',
     whitelist: form.whitelist.value.split('\n').map((s) => s.trim()).filter(Boolean),
   });
+  // Re-check health so the banner reflects the (possibly changed) AI backend —
+  // it queries the newly-saved adapter and updates connected/version or the
+  // onboarding card + disables Analyze if the new backend isn't reachable.
+  await checkHealth();
   setStatus('Settings saved.');
 });
 

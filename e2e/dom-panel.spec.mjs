@@ -77,4 +77,8 @@ test('UI: settings form persists auto mode and thresholds', async ({ panel }) =>
   expect(settings.automationMode).toBe('auto');
   expect(settings.staleTabDays).toBe(30);
   expect(settings.enabledFeatures.groupTabs).toBe(false);
+
+  // Saving a new backend re-checks health so the banner reflects it (not stale "Claude").
+  await expect(panel.locator('#health')).toContainText(/Kiro/i, { timeout: 15000 });
+  await expect(panel.locator('#health')).not.toContainText(/Claude/i);
 });
