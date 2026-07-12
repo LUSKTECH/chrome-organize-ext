@@ -1,19 +1,19 @@
-// Builds the Web Store / Edge Add-ons upload zip from extension/ ONLY.
-// The native host, tests, docs, and git are siblings of extension/ and are never
-// included. Dependency-free ZIP writer (zlib deflate + CRC32). Run: npm run package
+// Builds distributable zips (dependency-free ZIP writer: zlib deflate + CRC32).
+//   npm run package            → store zip: extension/ ONLY (Web Store / Edge upload)
+//   npm run package:selfhost   → self-host bundle: extension/ + native-host/ + install/ + docs
 import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const SRC = path.join(ROOT, 'extension');
-const version = JSON.parse(fs.readFileSync(path.join(SRC, 'manifest.json'), 'utf8')).version;
+const mode = process.argv[2] === 'selfhost' ? 'selfhost' : 'store';
+const version = JSON.parse(fs.readFileSync(path.join(ROOT, 'extension', 'manifest.json'), 'utf8')).version;
 const outDir = path.join(ROOT, 'dist');
 fs.mkdirSync(outDir, { recursive: true });
-const outPath = path.join(outDir, `browser-organizer-${version}.zip`);
 
-const EXCLUDE = new Set(['.DS_Store', 'Thumbs.db']);
+// Generated launchers, OS cruft — never ship these.
+const EXCLUDE = new Set(['.DS_Store', 'Thumbs.db', 'run.sh', 'run.bat']);
 
 const CRC_TABLE = (() => {
   const t = new Uint32Array(256);
@@ -24,6 +24,7 @@ function crc32(buf) { let c = 0xffffffff; for (let i = 0; i < buf.length; i++) c
 
 function walk(dir, base = '') {
   const out = [];
+  if (!fs.existsSync(dir)) return out;
   for (const name of fs.readdirSync(dir).sort()) {
     if (EXCLUDE.has(name)) continue;
     const full = path.join(dir, name);
@@ -34,8 +35,21 @@ function walk(dir, base = '') {
   return out;
 }
 
+function collect() {
+  if (mode === 'store') return walk(path.join(ROOT, 'extension'));
+  const files = [];
+  for (const dir of ['extension', 'native-host', 'install']) {
+    for (const f of walk(path.join(ROOT, dir))) files.push({ rel: `${dir}/${f.rel}`, full: f.full });
+  }
+  for (const doc of ['INSTALL.md', 'README.md', 'PRIVACY.md', 'SECURITY.md']) {
+    const p = path.join(ROOT, doc);
+    if (fs.existsSync(p)) files.push({ rel: doc, full: p });
+  }
+  return files;
+}
+
 const DOS_DATE = 0x5221; // fixed (2021-01-01) → reproducible zips
-const files = walk(SRC);
+const files = collect();
 const parts = [];
 const central = [];
 let offset = 0;
@@ -64,6 +78,6 @@ const eocd = Buffer.alloc(22);
 eocd.writeUInt32LE(0x06054b50, 0);
 eocd.writeUInt16LE(files.length, 8); eocd.writeUInt16LE(files.length, 10);
 eocd.writeUInt32LE(centralBuf.length, 12); eocd.writeUInt32LE(offset, 16);
+const outPath = path.join(outDir, mode === 'store' ? `browser-organizer-${version}.zip` : `browser-organizer-selfhost-${version}.zip`);
 fs.writeFileSync(outPath, Buffer.concat([...parts, centralBuf, eocd]));
-console.log(`Packaged ${files.length} files → ${path.relative(ROOT, outPath)} (${(fs.statSync(outPath).size / 1024).toFixed(1)} KB)`);
-for (const f of files) console.log(`  ${f.rel}`);
+console.log(`[${mode}] packaged ${files.length} files → ${path.relative(ROOT, outPath)} (${(fs.statSync(outPath).size / 1024).toFixed(1)} KB)`);

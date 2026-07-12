@@ -1,4 +1,4 @@
-import { test, expect, send, runFeature, countTabsWithUrl } from './fixtures.mjs';
+import { test, expect, runFeature, countTabsWithUrl } from './fixtures.mjs';
 
 // Safety flows that had no coverage: the undo-history dialog and the muted list.
 // Uses the local dupeTabs feature so the plan is deterministic (no CLI).

@@ -18,13 +18,15 @@ export default [
         Blob: 'readonly', btoa: 'readonly', console: 'readonly', globalThis: 'readonly',
         setTimeout: 'readonly', clearTimeout: 'readonly', setInterval: 'readonly', clearInterval: 'readonly',
         Buffer: 'readonly', process: 'readonly', structuredClone: 'readonly', TextEncoder: 'readonly',
+        queueMicrotask: 'readonly',
       },
     },
     rules: {
       'no-unsanitized/method': 'error',
       'no-unsanitized/property': 'error',
-      'no-unused-vars': ['warn', { argsIgnorePattern: '^_', caughtErrors: 'none' }],
+      'no-unused-vars': ['warn', { argsIgnorePattern: '^_', caughtErrors: 'none', ignoreRestSiblings: true }],
       'no-empty': ['warn', { allowEmptyCatch: true }],
+      'no-empty-pattern': 'off', // `async ({}, use) =>` is the Playwright fixture idiom
     },
   },
   { ignores: ['node_modules/', 'test-results/', 'playwright-report/'] },

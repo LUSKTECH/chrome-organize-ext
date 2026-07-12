@@ -59,6 +59,14 @@ export function registryCommands(browsers, manifestPath) {
   });
 }
 
+export function registryDeleteCommands(browsers) {
+  return browsers.map((b) => {
+    const root = WIN_REG_ROOTS[b];
+    if (!root) throw new Error(`Unsupported browser for win32: ${b}`);
+    return ['reg', 'delete', `${root}\\${HOST_NAME}`, '/f'];
+  });
+}
+
 // Resolves the absolute path to the `claude` CLI using the platform's lookup
 // tool (which/where). Host-side only — never influenced by extension messages.
 export function resolveCliPath(platform = process.platform, spawnSyncFn = spawnSync, binary = 'claude') {
@@ -85,9 +93,32 @@ export function buildLauncherScript({ platform, nodePath, hostEntry, vars = [] }
 
 // Writes a launcher that calls node (absolute path) on host.js, then registers
 // the host manifest for each requested browser. Returns the files it wrote.
+export function defaultHostDir() {
+  return path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'native-host');
+}
+
+// Removes the native-host manifests (and returns registry-delete argv on win32)
+// so users/installers can cleanly unregister. Returns the list of files removed.
+export function uninstall({ browsers, platform = process.platform, home = os.homedir(), hostDir } = {}) {
+  const nativeHostDir = hostDir || defaultHostDir();
+  const removed = [];
+  if (platform === 'win32') {
+    const manifestPath = winManifestPath(nativeHostDir);
+    if (fs.existsSync(manifestPath)) { fs.rmSync(manifestPath); removed.push(manifestPath); }
+    removed._registryCommands = registryDeleteCommands(browsers || Object.keys(WIN_REG_ROOTS));
+    return removed;
+  }
+  const list = browsers || Object.keys(DIRS[platform] || {});
+  for (const browser of list) {
+    const file = path.join(manifestDir(browser, platform, home), `${HOST_NAME}.json`);
+    if (fs.existsSync(file)) { fs.rmSync(file); removed.push(file); }
+  }
+  return removed;
+}
+
 export function install({ extensionId, browsers, platform = process.platform, home = os.homedir(), hostDir, nodePath = process.execPath }) {
   if (!extensionId) throw new Error('extensionId is required');
-  const nativeHostDir = hostDir || path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'native-host');
+  const nativeHostDir = hostDir || defaultHostDir();
   const hostEntry = path.join(nativeHostDir, 'host.js');
 
   const isWin = platform === 'win32';
@@ -117,20 +148,30 @@ export function install({ extensionId, browsers, platform = process.platform, ho
   return written;
 }
 
-// CLI entry: node install/install.js <extensionId> [chrome,edge]
+// CLI entry:
+//   node install/install.js <extensionId> [chrome,edge]   → install
+//   node install/install.js uninstall [chrome,edge]        → remove
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
-  const extensionId = process.argv[2];
-  const browsers = (process.argv[3] || 'chrome,edge').split(',');
-  if (!extensionId) {
-    console.error('Usage: node install/install.js <extensionId> [chrome,edge,chromium]');
-    process.exit(1);
-  }
-  const files = install({ extensionId, browsers });
-  console.log('Wrote:\n' + files.map((f) => '  ' + f).join('\n'));
-  if (files._registryCommands) {
-    for (const argv of files._registryCommands) {
+  const runRegistry = (cmds) => {
+    for (const argv of cmds || []) {
       console.log('Running: ' + argv.join(' '));
       spawnSync(argv[0], argv.slice(1), { stdio: 'inherit' }); // no shell → no metachar injection
     }
+  };
+  if (process.argv[2] === 'uninstall') {
+    const browsers = (process.argv[3] || 'chrome,edge').split(',');
+    const removed = uninstall({ browsers });
+    console.log(removed.length ? 'Removed:\n' + removed.map((f) => '  ' + f).join('\n') : 'Nothing to remove.');
+    runRegistry(removed._registryCommands);
+  } else {
+    const extensionId = process.argv[2];
+    const browsers = (process.argv[3] || 'chrome,edge').split(',');
+    if (!extensionId) {
+      console.error('Usage:\n  node install/install.js <extensionId> [chrome,edge,chromium]\n  node install/install.js uninstall [chrome,edge]');
+      process.exit(1);
+    }
+    const files = install({ extensionId, browsers });
+    console.log('Wrote:\n' + files.map((f) => '  ' + f).join('\n'));
+    runRegistry(files._registryCommands);
   }
 }

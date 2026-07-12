@@ -194,7 +194,7 @@ test('dead-link check falls back to GET on 405 and flags 404', async () => {
 });
 
 // ---- install() body: linux write + win32 registry ----
-test('install() writes launcher + manifest (linux) and returns registry commands (win32)', () => {
+test('install() writes launcher + manifest (linux) and returns registry commands (win32)', async () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'borg-home-'));
   const hostDir = fs.mkdtempSync(path.join(os.tmpdir(), 'borg-host-'));
   try {
@@ -207,6 +207,14 @@ test('install() writes launcher + manifest (linux) and returns registry commands
     assert.ok(win.some((f) => f.endsWith('run.bat')));
     assert.equal(win._registryCommands.length, 1);
     assert.deepEqual(win._registryCommands[0].slice(0, 2), ['reg', 'add']);
+
+    // uninstall removes the linux manifest and returns win32 registry-delete argv
+    const { uninstall } = await import('../install/install.js');
+    const removed = uninstall({ browsers: ['chrome'], platform: 'linux', home, hostDir });
+    assert.ok(removed.some((f) => f.includes('NativeMessagingHosts')));
+    for (const f of removed) assert.ok(!fs.existsSync(f), `removed: ${f}`);
+    const winRemoved = uninstall({ browsers: ['chrome'], platform: 'win32', home, hostDir });
+    assert.deepEqual(winRemoved._registryCommands[0].slice(0, 2), ['reg', 'delete']);
   } finally {
     fs.rmSync(home, { recursive: true, force: true });
     fs.rmSync(hostDir, { recursive: true, force: true });

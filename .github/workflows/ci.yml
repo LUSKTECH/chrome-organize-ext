@@ -34,12 +34,11 @@ jobs:
 
   lint:
     runs-on: ubuntu-latest
-    # Advisory for now (surfaces issues without blocking merges); eslint is
-    # fetched on demand so it need not sit in the committed lockfile.
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npx --yes eslint@^9 --no-install . || npx --yes -p eslint@^9 -p eslint-plugin-no-unsanitized@^4 eslint .
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
