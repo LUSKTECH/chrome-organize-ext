@@ -1,6 +1,7 @@
 node_modules/
 test-results/
 playwright-report/
+dist/
 *.log
 native-host/run.sh
 native-host/run.bat

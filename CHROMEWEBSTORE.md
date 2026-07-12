@@ -1,20 +1,24 @@
-# Chrome Web Store Listing — Browser Organizer
+# Chrome Web Store / Edge Add-ons Listing — Browser Organizer
 
-_Last updated: 2026-07-09_
+_Last updated: 2026-07-11_
 
-## Short description
-Organize a messy browser: group open tabs by topic, close forgotten tabs, bookmark the
-important ones, and clean out dead or duplicate bookmarks — powered by your own local AI CLI.
+## Short description (≤132 chars)
+Organize tabs and bookmarks with your own local AI CLI: group tabs, close stale ones, tidy bookmarks. Review or auto-apply.
+
+<!-- 121 chars. The store "summary" field caps at 132. -->
 
 ## Detailed description
 Browser Organizer turns a 200-tab mess into order. Click one button and it groups your
 open tabs by topic, flags forgotten tabs you can close (saving any worth keeping first),
 files genuinely useful pages into tidy bookmark folders, and finds stale, dead, or
 duplicate bookmarks to remove. You review every change before it happens, or turn on
-automatic mode with one-click undo. All processing runs through a helper program on your
-own computer, which calls your own AI CLI — tab titles and URLs are sent to that CLI's
-AI provider under your own subscription. Nothing is ever sent to our servers; we operate
-none.
+automatic mode with one-click undo.
+
+All processing runs through a small helper program on your own computer, which calls your
+own AI CLI (Claude Code, Antigravity, Kiro, Copilot, Codex, or local Ollama) — or an
+OpenAI-compatible endpoint you configure. Tab titles and URLs are sent to that provider
+under your own subscription; bookmarks and history never leave your machine. Nothing is
+ever sent to our servers — we operate none.
 
 ## Permission justifications
 - **tabs**: Read tab titles and URLs to suggest groupings and identify forgotten tabs.
@@ -24,21 +28,50 @@ none.
 - **storage**: Save your settings, tab-activity timestamps, and the undo log locally.
 - **alarms**: Run scheduled organization passes and prune the undo log in auto mode.
 - **sidePanel**: Show the review dashboard where you approve suggested changes.
-- **nativeMessaging**: Communicate with the local helper that runs your AI CLI.
+- **nativeMessaging**: Communicate with the local helper that runs your AI CLI (see reviewer note).
 - **notifications**: Tell you when a scheduled pass finishes and changes are ready/applied.
 - **optional_host_permissions `<all_urls>`**: Requested at runtime only if you enable
   dead-link scanning, to check whether bookmarked pages still load. Not granted at install.
   The extension never reads page contents — it only checks the HTTP status.
 
 ## Privacy
-See PRIVACY.md. Tab titles and URLs (query strings/fragments stripped) are sent to your
-AI provider under your own subscription, via your local AI CLI. Bookmarks and history
-are never sent anywhere — they stay on your machine. No data ever reaches the
-extension developer's servers; we operate none.
+See PRIVACY.md (host it at a public URL and enter that URL in the store's privacy field).
+Tab titles and URLs (query strings/fragments stripped, private/loopback hosts coarsened to
+origin, embedded credentials removed) are sent to your AI provider under your own
+subscription, via your local helper. Bookmarks and history are never sent anywhere. No data
+ever reaches the extension developer's servers; we operate none.
 
-## Pre-publish checklist
-- [ ] Real 16/48/128 px icons added to `extension/icons/` and referenced in manifest
-- [ ] At least one 1280×800 screenshot of the side panel
-- [ ] Privacy policy URL is live and matches PRIVACY.md
-- [ ] ZIP excludes `.git/`, `node_modules/`, `test/`, `CHROMEWEBSTORE.md`
-- [ ] After publishing, update the native host `allowed_origins` note if the store ID differs
+## Notes for reviewers (IMPORTANT — read before testing)
+This extension is the front-end for a **local companion helper** ("native messaging host")
+that runs the user's own AI CLI. Because a native host cannot be distributed inside a store
+package, the helper is installed once, separately, by the user:
+
+1. Until the helper is installed, the side panel shows an onboarding card with the exact
+   one-line command to run — the extension loads and is safe, but analysis is inactive.
+2. After the one-time install, all features work. To exercise functionality during review,
+   the helper must be installed per the project README (`npm run install-host <id> chrome,edge`).
+
+Key safety facts:
+- **No developer servers exist.** Tab titles/URLs go only to the *user's own* AI provider via
+  the *user's own* subscription; bookmarks/history stay on-device.
+- `nativeMessaging` is used **solely** to talk to that local helper. The helper runs only a
+  fixed set of known CLIs (or an HTTPS OpenAI-compatible endpoint); the command, arguments,
+  and credentials are resolved host-side and can never be supplied by the extension/a web
+  page. See SECURITY.md.
+- The `key` field pins the extension ID so the helper's `allowed_origins` stays valid across
+  builds — please keep the assigned ID stable.
+
+## Version history
+- **0.1.0** (2026-07-11) — Initial submission. Tab grouping, stale-tab detection, bookmark
+  cleanup (duplicate/stale/dead-link), auto-bookmarking, per-window scope, natural-language
+  commands, sessions, scheduled auto-mode with undo. Six CLI backends + OpenAI-compatible API.
+
+## Store assets still required (not in this repo)
+- [x] Real 16/48/128 px icons in `extension/icons/` and referenced in manifest (`npm run icons`)
+- [x] Upload zip built from `extension/` only (`npm run package` → `dist/`)
+- [ ] Store icon shown on the listing page (128×128 — reuse `icons/icon-128.png`)
+- [ ] At least one screenshot at 1280×800 or 640×400 (side panel with suggestions)
+- [ ] Privacy policy hosted at a public URL; enter it in the store + fill the data-use form
+- [ ] Chrome Web Store developer account ($5 one-time) / Edge Partner Center account (free)
+- [ ] After first publish, confirm the store-assigned extension ID matches the `key`-derived ID
+      so the native host `allowed_origins` remains correct
