@@ -26,14 +26,17 @@
       <button id="run" class="primary" data-i18n="analyzeButton">Analyze my tabs & bookmarks</button>
       <button id="cancelRun" aria-label="Cancel the running scan" hidden>Cancel</button>
       <p id="status" role="status"></p>
+    </header>
+
+    <div class="quickActions">
+      <span class="quickLabel">Run one</span>
       <div id="runOne" class="runOne">
         <button type="button" data-feature="groupTabs" data-i18n="featGroupTabs">Group tabs</button>
         <button type="button" data-feature="staleTabs" data-i18n="featStaleTabs">Find stale tabs</button>
         <button type="button" data-feature="importantBookmarks" data-i18n="featBookmarkImportant">Bookmark important</button>
         <button type="button" data-feature="cleanBookmarks" data-i18n="featCleanBookmarks">Clean bookmarks</button>
-        <button type="button" id="clearPlan" data-i18n="clearList">Clear list</button>
       </div>
-    </header>
+    </div>
 
     <section id="onboarding" hidden>
       <h2 data-i18n="onboardingTitle">Connect your AI CLI</h2>
@@ -45,23 +48,6 @@
       </div>
       <p class="hint">Then pick your AI backend in Settings below (Claude, Antigravity, Kiro, Copilot, Codex, or local Ollama).</p>
     </section>
-
-    <details id="tabsPanel">
-      <summary data-i18n="openTabs">Open tabs</summary>
-      <input type="text" id="tabFilter" aria-label="Filter open tabs by title, URL, or domain" placeholder="Filter by title, URL, or domain" />
-      <ul id="tabList"></ul>
-      <div class="tabsActions">
-        <button id="closeTabsBtn" data-i18n="closeSelected">Close selected</button>
-        <span id="tabCount" class="hint"></span>
-      </div>
-    </details>
-
-    <form id="commandForm" class="commandForm">
-      <label for="commandInput" data-i18n="commandLabel">Tell it what to do</label>
-      <input type="text" id="commandInput" placeholder="e.g. close everything about travel" />
-      <button type="submit" data-i18n="runCommand">Run command</button>
-    </form>
-    <p class="hint">Tip: <kbd>Ctrl+Shift+O</kbd> to analyze · type <kbd>org &lt;instruction&gt;</kbd> in the address bar.</p>
 
     <section id="summary" hidden></section>
 
@@ -77,12 +63,33 @@
 
     <div id="undoToast" role="status" hidden></div>
 
-    <footer>
-      <button id="approveSelected" data-i18n="applySelected">Apply selected</button>
+    <div id="planActions" hidden>
+      <button id="approveSelected" class="apply-primary" data-i18n="applySelected">Apply selected</button>
       <button id="approveAll" data-i18n="applyAll">Apply all</button>
-      <button id="showUndo" data-i18n="undoHistory">Undo history</button>
-      <button id="exportMarkdown" data-i18n="exportMarkdown">Export as Markdown</button>
-    </footer>
+      <button id="clearPlan" data-i18n="clearList">Clear list</button>
+    </div>
+
+    <section class="tools" aria-label="Tools">
+      <div class="toolsHead">Tools</div>
+
+      <details class="tool" id="commandPanel">
+        <summary data-i18n="commandLabel">Type a command</summary>
+        <form id="commandForm" class="commandForm">
+          <input type="text" id="commandInput" aria-label="Natural-language command" placeholder="e.g. close everything about travel" />
+          <button type="submit" data-i18n="runCommand">Run command</button>
+        </form>
+        <p class="hint"><kbd>Ctrl+Shift+O</kbd> to analyze · type <kbd>org &lt;instruction&gt;</kbd> in the address bar.</p>
+      </details>
+
+      <details id="tabsPanel">
+        <summary data-i18n="openTabs">Open tabs</summary>
+        <input type="text" id="tabFilter" aria-label="Filter open tabs by title, URL, or domain" placeholder="Filter by title, URL, or domain" />
+        <ul id="tabList"></ul>
+        <div class="tabsActions">
+          <button id="closeTabsBtn" data-i18n="closeSelected">Close selected</button>
+          <span id="tabCount" class="hint"></span>
+        </div>
+      </details>
 
     <details id="settings">
       <summary data-i18n="settingsTitle">Settings</summary>
@@ -121,21 +128,6 @@
       </form>
     </details>
 
-    <dialog id="undoDialog" aria-labelledby="undoDialogTitle">
-      <h2 id="undoDialogTitle">Undo history</h2>
-      <ul id="undoList"></ul>
-      <button id="closeUndo">Close</button>
-    </dialog>
-
-    <dialog id="confirmDialog" aria-labelledby="confirmTitle" aria-describedby="confirmMsg">
-      <h2 id="confirmTitle">Apply changes?</h2>
-      <p id="confirmMsg"></p>
-      <div class="dialogActions">
-        <button type="button" id="confirmCancel">Cancel</button>
-        <button type="button" id="confirmOk" class="primary" autofocus>Apply</button>
-      </div>
-    </dialog>
-
     <details id="sessions">
       <summary data-i18n="sessionsTitle">Sessions</summary>
       <form id="saveSessionForm">
@@ -152,6 +144,27 @@
       <ul id="mutedList"></ul>
       <button id="resetLearning">Reset learning</button>
     </details>
+
+      <div class="toolRow">
+        <button id="showUndo" data-i18n="undoHistory">Undo history</button>
+        <button id="exportMarkdown" data-i18n="exportMarkdown">Export as Markdown</button>
+      </div>
+    </section>
+
+    <dialog id="undoDialog" aria-labelledby="undoDialogTitle">
+      <h2 id="undoDialogTitle">Undo history</h2>
+      <ul id="undoList"></ul>
+      <button id="closeUndo">Close</button>
+    </dialog>
+
+    <dialog id="confirmDialog" aria-labelledby="confirmTitle" aria-describedby="confirmMsg">
+      <h2 id="confirmTitle">Apply changes?</h2>
+      <p id="confirmMsg"></p>
+      <div class="dialogActions">
+        <button type="button" id="confirmCancel">Cancel</button>
+        <button type="button" id="confirmOk" class="primary" autofocus>Apply</button>
+      </div>
+    </dialog>
 
     <template id="itemTemplate">
       <li class="item">

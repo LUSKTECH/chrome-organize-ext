@@ -146,10 +146,12 @@ input[type="checkbox"] { accent-color: var(--accent); width: 15px; height: 15px;
 #cancelRun[hidden] { display: none; }
 #status { min-height: 1.1em; margin: 8px 0 0; color: var(--text-muted); font-size: 12px; }
 
-/* Per-action pill buttons */
-.runOne { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+/* Quick per-feature runs — visually subordinate to the primary Analyze CTA */
+.quickActions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.quickLabel { flex: none; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-faint); }
+.runOne { display: flex; flex-wrap: wrap; gap: 6px; flex: 1 1 auto; }
 .runOne button {
-  padding: 6px 11px;
+  padding: 5px 10px;
   font-size: 12px;
   border-radius: var(--r-pill);
   background: var(--surface-2);
@@ -316,9 +318,13 @@ select.groupColor { flex: none; font-size: 11px; padding: 3px 6px; }
 #undoToast[hidden] { display: none; }
 #undoToast button { padding: 5px 12px; color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); font-weight: 600; }
 
-/* ---------- Footer ---------- */
-footer { display: flex; gap: 6px; margin: 14px 0; flex-wrap: wrap; }
-footer button { flex: 1 1 auto; font-size: 12px; }
+/* ---------- Plan action bar (contextual — only shown when a plan exists) ---------- */
+#planActions { display: flex; gap: 6px; margin: 12px 0 4px; flex-wrap: wrap; }
+#planActions[hidden] { display: none; }
+#planActions button { flex: 1 1 auto; font-size: 12px; }
+#planActions .apply-primary { color: var(--accent-fg); background: var(--accent); border-color: transparent; font-weight: 600; box-shadow: var(--shadow-1); }
+#planActions .apply-primary:hover { background: var(--accent-hover); }
+#planActions #clearPlan { flex: 0 1 auto; color: var(--text-muted); }
 
 /* ---------- Open-tabs panel ---------- */
 #tabFilter { width: 100%; margin: 4px 12px 8px; width: calc(100% - 24px); }
@@ -418,6 +424,7 @@ kbd { font-family: var(--mono); font-size: 10px; background: var(--surface-2); b
 
 /* ---------- Plan toolbar (filter / bulk-select / expand) ---------- */
 .planTools { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0; }
+.planTools[hidden] { display: none; } /* author display:flex would otherwise override the hidden attr */
 .planTools input[type="search"] { flex: 1 1 140px; min-width: 120px; }
 .planTools button { padding: 4px 10px; font-size: 11px; }
 
@@ -439,6 +446,31 @@ li.nonHttp span:not(.tabTag) { color: var(--text-muted); }
 #confirmDialog h2 { font-size: 14px; margin: 0 0 8px; }
 #confirmDialog p { font-size: 13px; line-height: 1.45; margin: 0 0 14px; }
 .dialogActions { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* ---------- Tools cluster (grouped secondary panels) ---------- */
+.tools { margin-top: 20px; }
+.toolsHead {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-faint); margin: 0 2px 6px; padding-top: 12px; border-top: 1px solid var(--border);
+}
+.tools > details { margin-top: 8px; }
+.toolRow { display: flex; gap: 6px; margin-top: 10px; }
+.toolRow button { flex: 1 1 auto; font-size: 12px; color: var(--text-muted); }
+
+/* Command panel — same disclosure look as the other tools */
+#commandPanel { margin-top: 8px; border: 1px solid var(--border); border-radius: var(--r); background: var(--surface); overflow: hidden; }
+#commandPanel > summary { cursor: pointer; padding: 10px 12px; font-weight: 600; list-style: none; display: flex; align-items: center; gap: 8px; }
+#commandPanel > summary::-webkit-details-marker { display: none; }
+#commandPanel > summary::before {
+  content: ""; width: 6px; height: 6px; flex: none;
+  border-right: 2px solid var(--text-faint); border-bottom: 2px solid var(--text-faint);
+  transform: rotate(-45deg); transition: transform var(--dur) ease;
+}
+#commandPanel[open] > summary::before { transform: rotate(45deg); }
+.commandForm { display: grid; gap: 6px; padding: 2px 12px 8px; margin: 0; }
+.commandForm input { width: 100%; }
+.commandForm button { justify-self: start; }
+#commandPanel .hint { padding: 0 12px 12px; margin: 0; }
 
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }

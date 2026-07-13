@@ -11,7 +11,7 @@
   "clearList": { "message": "Clear list", "description": "Clear the suggestion list." },
   "openTabs": { "message": "Open tabs", "description": "Open-tabs panel heading." },
   "closeSelected": { "message": "Close selected", "description": "Close the selected open tabs." },
-  "commandLabel": { "message": "Tell it what to do", "description": "Natural-language command label." },
+  "commandLabel": { "message": "Type a command", "description": "Command tool disclosure label." },
   "runCommand": { "message": "Run command", "description": "Submit the natural-language command." },
   "applySelected": { "message": "Apply selected", "description": "Apply the checked suggestions." },
   "applyAll": { "message": "Apply all", "description": "Apply every suggestion." },

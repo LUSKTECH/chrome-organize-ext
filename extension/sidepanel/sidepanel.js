@@ -184,6 +184,7 @@ function renderPlan() {
   const filterNote = planFilter && shown.length !== plan.length ? `  (filtered from ${plan.length})` : '';
   summary.textContent = Object.entries(counts).map(([a, n]) => `${actionLabel(a)}: ${n}`).join('  •  ') + filterNote;
   $('planTools').hidden = plan.length === 0;
+  $('planActions').hidden = plan.length === 0; // contextual: apply/clear only when there's a plan
 
   const groups = groupByAction(shown);
   const tpl = $('itemTemplate');
