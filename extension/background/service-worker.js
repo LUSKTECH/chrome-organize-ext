@@ -9,6 +9,18 @@ import { parseOmnibox } from '../lib/omnibox.js';
 import { digestText } from '../lib/plan-summary.js';
 import { withLock } from '../lib/mutex.js';
 import { uniqueId } from '../lib/ids.js';
+import { getSecret } from '../lib/secret-store.js';
+
+// Creates the native client, attaching the openai adapter's UI-entered config
+// (key decrypted from secret-store here, base/model from settings) so the host
+// resolves them per-request. Other adapters send no config.
+async function makeClient(settings) {
+  if (settings.adapter === 'openai') {
+    const config = { apiKey: await getSecret('openaiApiKey'), baseUrl: settings.openaiBaseUrl || '', model: settings.openaiModel || '' };
+    return createNativeClient({ requestExtras: { config } });
+  }
+  return createNativeClient();
+}
 
 const ALARM_SCAN = 'organizer-scan';
 const ALARM_PRUNE = 'organizer-prune';
@@ -76,7 +88,7 @@ chrome.omnibox.onInputEntered.addListener(async (text) => {
   if (!instruction) return;
   const settings = await getSettings();
   const win = await chrome.windows.getLastFocused();
-  const client = createNativeClient();
+  const client = await makeClient(settings);
   try {
     const items = await runCommand(instruction, { nativeClient: client, windowId: win.id, settings });
     await withLock('currentPlan', () => chrome.storage.local.set({ currentPlan: items }));
@@ -112,7 +124,7 @@ function runScan(deps = {}) {
   const shouldCancel = deps.shouldCancel || (() => token.cancelled);
   scanInFlight = (async () => {
     const settings = await getSettings();
-    const nativeClient = createNativeClient();
+    const nativeClient = await makeClient(settings);
     try {
       const items = await buildPlan({ settings, nativeClient, onProgress, shouldCancel, features: deps.features, windowId: deps.windowId ?? null });
       const { autoApply, needsReview } = partitionForApply(items, settings);
@@ -275,7 +287,7 @@ async function handleGetUndo() {
 
 async function handleCommand(m) {
   const settings = await getSettings();
-  const nativeClient = createNativeClient();
+  const nativeClient = await makeClient(settings);
   try {
     const items = await runCommand(m.instruction, { nativeClient, windowId: m.windowId ?? null, settings });
     await withLock('currentPlan', () => chrome.storage.local.set({ currentPlan: items }));
@@ -311,7 +323,7 @@ async function handleDeleteSession(m) {
 
 async function handleHealth() {
   const settings = await getSettings();
-  const client = createNativeClient();
+  const client = await makeClient(settings);
   try { return { ok: true, health: await client.request({ type: 'health', adapter: settings.adapter }) }; }
   catch (err) { return { ok: true, health: { adapter: settings.adapter, ready: false, error: String((err && err.message) || err) } }; }
   finally { client.disconnect(); }

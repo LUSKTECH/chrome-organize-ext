@@ -106,6 +106,19 @@
           </select>
         </label>
         <p id="adapterNote" class="warnNote" role="note" hidden></p>
+        <div id="openaiConfig" hidden>
+          <label>API key
+            <input type="password" id="openaiApiKey" autocomplete="off" spellcheck="false" placeholder="sk-… (stored encrypted on this device)" />
+          </label>
+          <label class="inlineCheck"><input type="checkbox" id="openaiKeyShow" /> Show key</label>
+          <label>Base URL <span class="fieldHint">(optional)</span>
+            <input type="text" name="openaiBaseUrl" spellcheck="false" placeholder="https://api.openai.com/v1" />
+          </label>
+          <label>Model <span class="fieldHint">(optional)</span>
+            <input type="text" name="openaiModel" spellcheck="false" placeholder="gpt-4o-mini" />
+          </label>
+          <p class="hint">Your key is stored encrypted (AES-GCM) in this browser only — never synced. Point Base URL at OpenAI, OpenRouter, Groq, or a local server.</p>
+        </div>
         <label><input type="checkbox" name="groupTabs" /> Group open tabs by topic</label>
         <label><input type="checkbox" name="staleTabs" /> Suggest closing forgotten tabs</label>
         <label><input type="checkbox" name="importantBookmarks" /> Auto-bookmark important tabs</label>

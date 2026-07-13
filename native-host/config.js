@@ -52,3 +52,17 @@ export function sanitizeOptions(raw) {
   if (!Number.isFinite(t) || t < MIN_TIMEOUT) return { timeoutMs: DEFAULT_TIMEOUT };
   return { timeoutMs: Math.min(MAX_TIMEOUT, t) };
 }
+
+// The ONLY per-request config a message may carry, and only for the HTTP `openai`
+// adapter: the user's own API key / base URL / model entered in the extension UI.
+// Everything else (command, args, cwd, env for CLI adapters) stays host-resolved
+// and can never come from a message. Each field is validated to a non-empty string;
+// unknown fields are dropped.
+export function sanitizeConfig(raw) {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const out = {};
+  for (const k of ['apiKey', 'baseUrl', 'model']) {
+    if (typeof raw[k] === 'string' && raw[k]) out[k] = raw[k];
+  }
+  return Object.keys(out).length ? out : undefined;
+}

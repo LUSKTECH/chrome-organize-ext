@@ -438,6 +438,13 @@ kbd { font-family: var(--mono); font-size: 10px; background: var(--surface-2); b
 /* ---------- Lower-assurance adapter note ---------- */
 .warnNote { margin: 4px 0 8px; padding: 7px 10px; border-radius: var(--r-sm); background: var(--warn-soft); color: var(--warn-soft-text); font-size: 12px; line-height: 1.4; }
 
+/* ---------- OpenAI-compatible API config (in Settings) ---------- */
+#openaiConfig { display: grid; gap: 10px; padding: 2px 0; }
+#openaiConfig[hidden] { display: none; }
+#openaiConfig label:not(.inlineCheck) { display: grid; gap: 4px; align-items: start; }
+#openaiConfig input[type="text"], #openaiConfig input[type="password"] { width: 100%; }
+.fieldHint { color: var(--text-faint); font-weight: 400; font-size: 11px; }
+
 /* ---------- Non-http (browser page) tabs ---------- */
 li.nonHttp span:not(.tabTag) { color: var(--text-muted); }
 .tabTag { margin-left: 6px; padding: 1px 6px; border-radius: var(--r-pill); background: var(--surface-2); color: var(--text-faint); font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; }

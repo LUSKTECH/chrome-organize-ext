@@ -136,10 +136,8 @@ export function healthMessage(health, extensionId = '<your-extension-id>') {
       ok: false,
       text: [
         `Can't reach the ${label}.`,
-        'Fix: set your key in the helper app’s environment, then reopen this panel:',
-        '    BROWSER_ORGANIZER_OPENAI_API_KEY=sk-…',
-        'Optional: BROWSER_ORGANIZER_OPENAI_BASE_URL (default https://api.openai.com/v1)',
-        '          BROWSER_ORGANIZER_OPENAI_MODEL (default gpt-4o-mini)',
+        'Fix: open Settings below and enter your API key (and optional base URL / model),',
+        'then save. The key is stored encrypted in this browser.',
       ].join('\n'),
     };
   }

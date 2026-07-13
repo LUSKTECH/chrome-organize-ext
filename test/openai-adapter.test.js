@@ -28,6 +28,25 @@ function errRes(status, text) {
   return { ok: false, status, async json() { return {}; }, async text() { return text; } };
 }
 
+test('run/resolvers: UI-entered opts.config wins over env, falls back to env when absent', async () => {
+  await withEnv({ [KEY]: 'env-key', [BASE]: 'https://env.example/v1', [MODEL]: 'env-model' }, async () => {
+    // resolvers prefer config
+    assert.equal(resolveKey({ apiKey: 'ui-key' }), 'ui-key');
+    assert.equal(resolveBase({ baseUrl: 'https://ui.example/v1/' }), 'https://ui.example/v1');
+    assert.equal(resolveModel({ model: 'ui-model' }), 'ui-model');
+    // ...and fall back to env when config is undefined
+    assert.equal(resolveKey(), 'env-key');
+    assert.equal(resolveModel(), 'env-model');
+
+    let seen = null;
+    const fetchFn = (url, opts) => { seen = { url, opts }; return Promise.resolve(okJson({ choices: [{ message: { content: '{}' } }] })); };
+    await openaiAdapter.run('p', { fetchFn, config: { apiKey: 'ui-key', baseUrl: 'https://ui.example/v1/', model: 'ui-model' } });
+    assert.equal(seen.url, 'https://ui.example/v1/chat/completions');
+    assert.equal(seen.opts.headers.Authorization, 'Bearer ui-key');
+    assert.equal(JSON.parse(seen.opts.body).model, 'ui-model');
+  });
+});
+
 test('run posts to chat/completions with bearer auth and returns trimmed content', async () => {
   await withEnv({ [KEY]: 'sk-test' }, async () => {
     let seen = null;

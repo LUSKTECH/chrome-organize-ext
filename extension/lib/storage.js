@@ -12,6 +12,8 @@ export const DEFAULTS = {
   decisions: {},                       // per-target approve/reject counters (see recordDecision in orchestrator.js)
   adapter: 'claude',                   // native host adapter name
   scanIntervalMinutes: 720,           // auto-run cadence (12h)
+  openaiBaseUrl: '',                   // OpenAI-compatible endpoint (blank = host default). Key is in secret-store, not here.
+  openaiModel: '',                     // OpenAI-compatible model (blank = host default)
 };
 
 // `ignore` and `decisions` grow unbounded with use, so they live in storage.local

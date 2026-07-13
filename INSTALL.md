@@ -44,11 +44,11 @@ npm run install-host uninstall chrome,edge
 Open the extension's side panel (click the toolbar icon) → **Settings → AI backend**.
 
 **Easiest — OpenAI-compatible API (no CLI):**
-Set these in the environment the browser is launched from, then reopen the panel:
-- `BROWSER_ORGANIZER_OPENAI_API_KEY` — your key (required)
-- `BROWSER_ORGANIZER_OPENAI_BASE_URL` — optional (default `https://api.openai.com/v1`; point at
-  OpenRouter, Groq, or a local LM Studio/vLLM server if you prefer)
-- `BROWSER_ORGANIZER_OPENAI_MODEL` — optional (default `gpt-4o-mini`)
+Pick **OpenAI-compatible API** in Settings and enter your **API key** there (plus an
+optional base URL and model). The key is stored **encrypted** in this browser only
+(never synced). Point the base URL at OpenAI, OpenRouter, Groq, or a local
+LM Studio/vLLM server. _(Advanced/headless: you can instead set
+`BROWSER_ORGANIZER_OPENAI_API_KEY` / `_BASE_URL` / `_MODEL` in the host environment.)_
 
 **Power users — a local AI CLI:**
 Install and sign into one of: Claude Code (`claude`), Antigravity (`agy`), Kiro (`kiro-cli`),

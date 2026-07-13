@@ -1,4 +1,5 @@
 import { getSettings, setSettings } from '../lib/storage.js';
+import { setSecret, hasSecret } from '../lib/secret-store.js';
 import { ignoreKey } from '../lib/orchestrator.js';
 import {
   summarize, groupByAction, toggleSelection, selectedItems, actionLabel,
@@ -523,7 +524,9 @@ function updateAdapterNote(value) {
   const el = $('adapterNote');
   el.textContent = note;
   el.hidden = !note;
+  $('openaiConfig').hidden = value !== 'openai'; // key/base/model only for the API backend
 }
+$('openaiKeyShow').addEventListener('change', (e) => { $('openaiApiKey').type = e.target.checked ? 'text' : 'password'; });
 // Switching the AI backend applies immediately (persist + re-check health), so the
 // banner reflects the chosen backend without also having to click "Save settings".
 $('settingsForm').adapter.addEventListener('change', async (e) => {
@@ -539,6 +542,12 @@ async function loadSettings() {
   const form = $('settingsForm');
   form.adapter.value = s.adapter;
   updateAdapterNote(s.adapter);
+  form.openaiBaseUrl.value = s.openaiBaseUrl || '';
+  form.openaiModel.value = s.openaiModel || '';
+  $('openaiApiKey').value = '';
+  $('openaiApiKey').placeholder = (await hasSecret('openaiApiKey'))
+    ? '•••••••• saved — leave blank to keep'
+    : 'sk-… (stored encrypted on this device)';
   form.groupTabs.checked = s.enabledFeatures.groupTabs;
   form.staleTabs.checked = s.enabledFeatures.staleTabs;
   form.importantBookmarks.checked = s.enabledFeatures.importantBookmarks;
@@ -559,8 +568,14 @@ $('settingsForm').addEventListener('submit', async (e) => {
   if (form.deadLinkScan.checked) {
     await chrome.permissions.request({ origins: ['<all_urls>'] });
   }
+  // Persist the API key (encrypted, device-local) only if the user typed one;
+  // an empty field means "keep the saved key". Never round-trips the stored key.
+  const apiKeyInput = $('openaiApiKey');
+  if (apiKeyInput.value) { await setSecret('openaiApiKey', apiKeyInput.value.trim()); apiKeyInput.value = ''; }
   await setSettings({
     adapter: form.adapter.value,
+    openaiBaseUrl: form.openaiBaseUrl.value.trim(),
+    openaiModel: form.openaiModel.value.trim(),
     enabledFeatures: {
       groupTabs: form.groupTabs.checked,
       staleTabs: form.staleTabs.checked,

@@ -8,6 +8,9 @@ export const HOST_NAME = 'com.browser_organizer.host';
 export function createNativeClient(deps = {}) {
   const connectNative = deps.connectNative || ((name) => chrome.runtime.connectNative(name));
   const timeoutMs = deps.timeoutMs ?? 180000;
+  // Merged into every outgoing message — used to attach the openai adapter's
+  // UI-entered config ({ config: { apiKey, baseUrl, model } }) to each request.
+  const requestExtras = deps.requestExtras || {};
   let port = null;
   const pending = new Map();
 
@@ -40,7 +43,7 @@ export function createNativeClient(deps = {}) {
       pending.set(id, { resolve, reject, timer });
       // If the port is dying, postMessage can throw synchronously — clean up the
       // pending entry and timer instead of leaking them until the timeout fires.
-      try { p.postMessage({ ...message, id }); }
+      try { p.postMessage({ ...requestExtras, ...message, id }); }
       catch (err) { clearTimeout(timer); pending.delete(id); reject(err); }
     });
   }

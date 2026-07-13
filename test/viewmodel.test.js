@@ -148,7 +148,8 @@ test('healthMessage labels the connected adapter', () => {
 test('healthMessage: openai adapter gives API-key guidance, not a CLI install step', () => {
   const m = healthMessage({ ready: false, error: 'OpenAI API 401', adapter: 'openai' }, 'abcdef123');
   assert.equal(m.ok, false);
-  assert.match(m.text, /BROWSER_ORGANIZER_OPENAI_API_KEY/);
+  assert.match(m.text, /API key/i);
+  assert.match(m.text, /Settings/);
   assert.match(m.text, /OpenAI-compatible API/);
   assert.doesNotMatch(m.text, /install-host|--version/); // not CLI-flavored
 });

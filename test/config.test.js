@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveCommand, resolveArgs, sanitizeOptions } from '../native-host/config.js';
+import { resolveCommand, resolveArgs, sanitizeOptions, sanitizeConfig } from '../native-host/config.js';
 
 test('resolveCommand defaults to claude and honors env override', () => {
   const prev = process.env.BROWSER_ORGANIZER_CLI;
@@ -28,4 +28,16 @@ test('sanitizeOptions clamps out-of-range or bad timeout to default', () => {
   assert.equal(sanitizeOptions({ timeoutMs: 9_999_999 }).timeoutMs, 300000);
   assert.equal(sanitizeOptions({}).timeoutMs, 120000);
   assert.equal(sanitizeOptions(null).timeoutMs, 120000);
+});
+
+test('sanitizeConfig keeps only apiKey/baseUrl/model strings, drops anything executable', () => {
+  assert.deepEqual(
+    sanitizeConfig({ apiKey: 'sk-1', baseUrl: 'https://x/v1', model: 'gpt', command: 'rm -rf /', env: { X: 1 } }),
+    { apiKey: 'sk-1', baseUrl: 'https://x/v1', model: 'gpt' },
+  );
+  assert.deepEqual(sanitizeConfig({ apiKey: 'k', model: 123, baseUrl: '' }), { apiKey: 'k' });
+  assert.equal(sanitizeConfig({}), undefined);
+  assert.equal(sanitizeConfig(null), undefined);
+  assert.equal(sanitizeConfig('nope'), undefined);
+  assert.equal(sanitizeConfig({ command: 'x', args: ['y'] }), undefined);
 });

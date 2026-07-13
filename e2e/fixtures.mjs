@@ -34,6 +34,11 @@ export const test = base.extend({
   server: async ({}, use) => {
     const srv = http.createServer((req, res) => {
       if (req.url === '/dead') { res.writeHead(404); res.end('not found'); return; } // for dead-link tests
+      if (req.url.startsWith('/v1/')) { // stub OpenAI-compatible endpoint (/models + /chat/completions)
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ data: [], choices: [{ message: { content: '{"groups":[],"close":[],"important":[]}' } }] }));
+        return;
+      }
       const title = PAGES[req.url] || `Page ${req.url}`;
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       res.end(`<!doctype html><html><head><title>${title}</title></head><body><h1>${title}</h1></body></html>`);

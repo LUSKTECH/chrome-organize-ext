@@ -24,14 +24,16 @@ const HEALTH_TIMEOUT = 10000;
 
 const MAX_RESPONSE_BYTES = 5 * 1024 * 1024; // mirror the CLI adapters' output cap
 
-export function resolveKey() { return process.env[KEY_VAR] || ''; }
-export function resolveBase() { return (process.env[BASE_VAR] || DEFAULT_BASE).replace(/\/+$/, ''); }
-export function resolveModel() { return process.env[MODEL_VAR] || DEFAULT_MODEL; }
+// Config precedence: the UI-entered value (passed in the message, host-sanitized)
+// wins, then the host env var, then the built-in default. cfg is opts.config.
+export function resolveKey(cfg) { return (cfg && cfg.apiKey) || process.env[KEY_VAR] || ''; }
+export function resolveBase(cfg) { return ((cfg && cfg.baseUrl) || process.env[BASE_VAR] || DEFAULT_BASE).replace(/\/+$/, ''); }
+export function resolveModel(cfg) { return (cfg && cfg.model) || process.env[MODEL_VAR] || DEFAULT_MODEL; }
 
 // Refuse to send the bearer key over cleartext http, except to loopback (local
 // servers like LM Studio / vLLM). Returns the validated base URL.
-function checkedBase() {
-  const base = resolveBase();
+function checkedBase(cfg) {
+  const base = resolveBase(cfg);
   let u;
   try { u = new URL(base); } catch { throw new Error(`Invalid ${BASE_VAR}: ${base}`); }
   const loopback = u.hostname === 'localhost' || u.hostname === '127.0.0.1' || u.hostname === '[::1]' || u.hostname === '::1';
@@ -91,16 +93,17 @@ async function fetchWithTimeout(fetchFn, url, options, timeoutMs) {
 export const openaiAdapter = {
   name: 'openai',
   async run(prompt, opts = {}) {
-    const key = resolveKey();
-    if (!key) throw new Error(`OpenAI API key not set — set ${KEY_VAR} in the helper app's environment`);
+    const cfg = opts.config;
+    const key = resolveKey(cfg);
+    if (!key) throw new Error('OpenAI API key not set — add it in Settings (or set BROWSER_ORGANIZER_OPENAI_API_KEY).');
     const fetchFn = opts.fetchFn || globalThis.fetch;
     const timeoutMs = opts.timeoutMs || DEFAULT_TIMEOUT;
     const body = JSON.stringify({
-      model: resolveModel(),
+      model: resolveModel(cfg),
       messages: [{ role: 'user', content: prompt }],
       temperature: 0, // deterministic-ish: we want strict JSON, not creativity
     });
-    const res = await fetchWithTimeout(fetchFn, `${checkedBase()}/chat/completions`, { method: 'POST', headers: authHeaders(key), body }, timeoutMs);
+    const res = await fetchWithTimeout(fetchFn, `${checkedBase(cfg)}/chat/completions`, { method: 'POST', headers: authHeaders(key), body }, timeoutMs);
     if (!res.ok) throw new Error(`OpenAI API ${res.status}: ${(await safeText(res)).slice(0, 200)}`);
     const data = await readCappedJson(res);
     const content = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
@@ -108,11 +111,12 @@ export const openaiAdapter = {
     return content.trim();
   },
   async health(opts = {}) {
-    const key = resolveKey();
-    if (!key) throw new Error(`OpenAI API key not set — set ${KEY_VAR} in the helper app's environment`);
+    const cfg = opts.config;
+    const key = resolveKey(cfg);
+    if (!key) throw new Error('OpenAI API key not set — add it in Settings (or set BROWSER_ORGANIZER_OPENAI_API_KEY).');
     const fetchFn = opts.fetchFn || globalThis.fetch;
-    const res = await fetchWithTimeout(fetchFn, `${checkedBase()}/models`, { method: 'GET', headers: authHeaders(key) }, HEALTH_TIMEOUT);
+    const res = await fetchWithTimeout(fetchFn, `${checkedBase(cfg)}/models`, { method: 'GET', headers: authHeaders(key) }, HEALTH_TIMEOUT);
     if (!res.ok) throw new Error(`OpenAI API ${res.status}`);
-    return { version: `openai-compatible (${resolveModel()})` };
+    return { version: `openai-compatible (${resolveModel(cfg)})` };
   },
 };

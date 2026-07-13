@@ -1,12 +1,17 @@
 import { getAdapter as defaultGetAdapter } from './adapters/registry.js';
 import { buildGroupPrompt, buildStalePrompt, buildImportantPrompt, buildCommandPrompt } from './prompts.js';
 import { parseGroupResult, parseStaleResult, parseImportantResult, parseCommandResult } from './parse.js';
-import { sanitizeOptions } from './config.js';
+import { sanitizeOptions, sanitizeConfig } from './config.js';
 
 export async function handle(msg, deps = {}) {
   const getAdapter = deps.getAdapter || defaultGetAdapter;
   const adapter = getAdapter(msg.adapter || 'claude');
+  // opts.config carries the openai adapter's UI-entered key/base/model (if any);
+  // sanitizeConfig guarantees it's just those three strings, nothing executable.
+  // Only attach it when present so other adapters' opts stay {timeoutMs} exactly.
   const opts = sanitizeOptions(msg.cliOptions);
+  const cfg = sanitizeConfig(msg.config);
+  if (cfg) opts.config = cfg;
 
   if (msg.type === 'health') {
     try {

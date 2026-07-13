@@ -23,7 +23,7 @@ only the backend's own provider traffic leaves your machine.
 | **GitHub Copilot** | `copilot` | `copilot -p "<prompt>" -s --no-ask-user` | Copilot subscription via `COPILOT_GITHUB_TOKEN` / `GH_TOKEN` / existing `gh` login |
 | **OpenAI Codex** | `codex` | `codex exec --skip-git-repo-check "<prompt>"` | persisted ChatGPT login, or `OPENAI_API_KEY` |
 | **Ollama** (local) | `ollama` | `ollama run <model>` (prompt on stdin) | none — fully local; nothing leaves the machine |
-| **OpenAI-compatible API** | HTTP | `POST <base>/chat/completions` | `BROWSER_ORGANIZER_OPENAI_API_KEY` (host env) |
+| **OpenAI-compatible API** | HTTP | `POST <base>/chat/completions` | API key entered in **Settings** (encrypted at rest) — or `BROWSER_ORGANIZER_OPENAI_API_KEY` host env |
 
 The installer bakes the absolute path of each CLI it finds into the launcher. To
 override a binary location, set the matching env var: `BROWSER_ORGANIZER_CLI`
@@ -38,15 +38,23 @@ models locally, so with it selected no tab/bookmark data leaves your machine.
 
 ### OpenAI-compatible API backend
 The `openai` backend calls any `/chat/completions`-shaped endpoint directly from
-the native host (no CLI needed). Like every other backend, its credentials are
-resolved **host-side** — set them in the environment the browser/host launches
-from, never in the extension:
+the native host (no CLI needed).
 
-- `BROWSER_ORGANIZER_OPENAI_API_KEY` — bearer token (required)
+**Recommended:** pick **OpenAI-compatible API** in **Settings** and enter your API
+key (and optional base URL / model) there. The key is stored **encrypted at rest**
+(AES-GCM, via a non-extractable WebCrypto key) in the browser's local storage on
+this device only — it is never put in `storage.sync` and never leaves your machine
+except to the endpoint you configure. The extension passes it to the local helper
+per request; the helper makes the call.
+
+**Advanced / headless:** you can instead set host-side env vars (these take over
+when no key is entered in the UI):
+
+- `BROWSER_ORGANIZER_OPENAI_API_KEY` — bearer token
 - `BROWSER_ORGANIZER_OPENAI_BASE_URL` — default `https://api.openai.com/v1`
 - `BROWSER_ORGANIZER_OPENAI_MODEL` — default `gpt-4o-mini`
 
-Point `BASE_URL` at OpenAI, OpenRouter, Groq, Together, or a local server
+Point the base URL at OpenAI, OpenRouter, Groq, Together, or a local server
 (LM Studio, vLLM) — one adapter covers them all. Unlike the CLI subscriptions,
 this path is **metered/pay-per-token**; a local endpoint keeps data on-device.
 

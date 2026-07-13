@@ -11,13 +11,18 @@
   HOME, and a small set of declared auth vars (e.g. `GEMINI_API_KEY`,
   `KIRO_API_KEY`) passed through from the host's own environment — never from a
   message.
-- **The HTTP (`openai`) adapter keeps the same invariant.** It resolves its
-  bearer key, base URL, and model from host environment variables only
-  (`BROWSER_ORGANIZER_OPENAI_API_KEY` / `_BASE_URL` / `_MODEL`) — never from a
-  message, and the key is never stored in or reachable by the extension. The
-  message can still only select the adapter *name* and a bounded `timeoutMs`.
-  The request is issued by the native host, so no key or endpoint is exposed to
-  the browser and the extension needs no host permissions for it.
+- **The HTTP (`openai`) adapter — two credential paths, both constrained.**
+  1. *Host env* (`BROWSER_ORGANIZER_OPENAI_API_KEY` / `_BASE_URL` / `_MODEL`) — key
+     never enters the browser; strongest.
+  2. *UI-entered* — the user pastes the key in Settings; it is stored **encrypted at
+     rest** (AES-GCM, non-extractable WebCrypto key in IndexedDB, ciphertext in
+     `storage.local`, never `storage.sync`) and passed to the host per request.
+  A message may carry ONLY `{apiKey, baseUrl, model}` for this adapter, validated by
+  `sanitizeConfig` (strings only) — never a command, args, cwd, or env for any CLI
+  adapter. The host still enforces `https://` (loopback `http` allowed) before
+  sending the key, and caps the response size. UI entry trades a little strength
+  (the key lives encrypted in the browser and transits one message) for usability;
+  env stays available for the strongest posture.
 - **Native host is a local executable.** Any local process can, in principle, speak
   the native-messaging protocol to `run.sh`. The host can only run one of the fixed
   registered CLIs with fixed arguments over a private temp dir. Keep `run.sh`
