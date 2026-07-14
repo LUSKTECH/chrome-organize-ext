@@ -39,7 +39,8 @@ The store path needs the double-click, no-Node installer so store users never to
 terminal. The installer sources and CI exist (Phase C); the remaining gate is code-signing
 credentials.
 - [ ] **(you)** Obtain a Windows Authenticode (OV/EV) certificate and an Apple Developer
-      account (long lead), and add them to CI secrets — see `docs/native-host-installer-scope.md`.
+      account (long lead), and add them to CI secrets. (Or use the free SignPath Foundation
+      OSS certificate for Windows; macOS notarization still needs the $99/yr Apple account.)
 - [ ] **(you)** Confirm default store backend (recommended: OpenAI-compatible API — no CLI).
 
 Build & submit:
