@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { CLI_ADAPTERS } from './adapters/catalog.js';
-import { PROD_EXTENSION_ID, hostHome } from './paths.js';
+import { PROD_EXTENSION_ID, hostHome, hostBinName } from './paths.js';
 
 export const HOST_NAME = 'com.browser_organizer.host';
 
@@ -157,15 +157,27 @@ export function install({
   nodePath = process.execPath,
 } = {}) {
   const nativeHostDir = copyTo;
-  // Copy the host sources into the stable per-user home, then target that copy.
-  const hostEntry = copyHostTo(nativeHostDir);
-
   const isWin = platform === 'win32';
-  // Resolve every catalogued adapter's binary path in one pass (declarative).
-  const vars = CLI_ADAPTERS.map((a) => [a.cmdEnv, resolveCliPath(platform, spawnSync, a.bin)]);
-  const launcher = path.join(nativeHostDir, isWin ? 'run.bat' : 'run.sh');
-  fs.writeFileSync(launcher, buildLauncherScript({ platform, nodePath, hostEntry, vars }));
-  if (!isWin) fs.chmodSync(launcher, 0o700);
+
+  // Two install shapes point the manifest at different targets:
+  //  1) SEA binary present in copyTo → point the manifest straight at the binary
+  //     (the standalone-installer path; no Node, no launcher, no copied sources).
+  //  2) No binary → copy the host sources in and write a node launcher (the npx
+  //     path). This fallback must keep working exactly as before.
+  const binPath = path.join(nativeHostDir, hostBinName(platform));
+  let launcher;
+  if (fs.existsSync(binPath)) {
+    fs.mkdirSync(nativeHostDir, { recursive: true });
+    launcher = binPath;
+  } else {
+    // Copy the host sources into the stable per-user home, then target that copy.
+    const hostEntry = copyHostTo(nativeHostDir);
+    // Resolve every catalogued adapter's binary path in one pass (declarative).
+    const vars = CLI_ADAPTERS.map((a) => [a.cmdEnv, resolveCliPath(platform, spawnSync, a.bin)]);
+    launcher = path.join(nativeHostDir, isWin ? 'run.bat' : 'run.sh');
+    fs.writeFileSync(launcher, buildLauncherScript({ platform, nodePath, hostEntry, vars }));
+    if (!isWin) fs.chmodSync(launcher, 0o700);
+  }
 
   if (isWin) {
     const manifestPath = winManifestPath(nativeHostDir);

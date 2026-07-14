@@ -51,7 +51,7 @@ import os from 'node:os';
 import fs from 'node:fs';
 import path from 'node:path';
 import { install, copyHostTo, uninstall, repair } from '../native-host/installer.js';
-import { PROD_EXTENSION_ID } from '../native-host/paths.js';
+import { PROD_EXTENSION_ID, hostBinName } from '../native-host/paths.js';
 
 test('copyHostTo copies host sources but not generated launchers', () => {
   const dest = fs.mkdtempSync(path.join(os.tmpdir(), 'borg-copy-'));
@@ -102,5 +102,38 @@ test('repair is idempotent — re-running yields a working manifest', () => {
   const written = repair({ browsers: ['chrome'], platform: 'linux', home, copyTo });
   const manifest = JSON.parse(fs.readFileSync(written.find((f) => f.endsWith('.json')), 'utf8'));
   assert.ok(manifest.path.startsWith(copyTo));
+  fs.rmSync(home, { recursive: true, force: true });
+});
+
+// --- SEA-binary install target (Phase C) ---
+
+test('install points the manifest at a pre-existing SEA binary and skips run.sh', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'borg-sea-'));
+  const copyTo = path.join(home, '.browser-organizer');
+  // A packaged installer drops the binary into copyTo before registering it.
+  fs.mkdirSync(copyTo, { recursive: true });
+  const bin = path.join(copyTo, hostBinName('linux'));
+  fs.writeFileSync(bin, '#!/bin/sh\nexit 0\n');
+  fs.chmodSync(bin, 0o700);
+
+  const written = install({ browsers: ['chrome'], platform: 'linux', home, copyTo });
+  const manifestFile = written.find((f) => f.endsWith('.json'));
+  const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
+  assert.equal(manifest.path, bin);                       // manifest targets the binary directly
+  assert.ok(!fs.existsSync(path.join(copyTo, 'run.sh'))); // no launcher written
+  assert.ok(!written.includes(path.join(copyTo, 'run.sh')));
+  fs.rmSync(home, { recursive: true, force: true });
+});
+
+test('install without a binary still copies sources and writes run.sh (npx path)', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'borg-nosea-'));
+  const copyTo = path.join(home, '.browser-organizer');
+  const written = install({ browsers: ['chrome'], platform: 'linux', home, copyTo });
+  const launcher = path.join(copyTo, 'run.sh');
+  assert.ok(fs.existsSync(launcher));
+  assert.ok(written.includes(launcher));
+  const manifest = JSON.parse(fs.readFileSync(written.find((f) => f.endsWith('.json')), 'utf8'));
+  assert.equal(manifest.path, launcher);
+  assert.ok(fs.existsSync(path.join(copyTo, 'host.js')));
   fs.rmSync(home, { recursive: true, force: true });
 });

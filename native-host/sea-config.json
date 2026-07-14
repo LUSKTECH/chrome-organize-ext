@@ -1,0 +1,5 @@
+{
+  "main": "dist/host/host-bundle.cjs",
+  "output": "dist/host/sea-prep.blob",
+  "disableExperimentalSEAWarning": true
+}

@@ -13,13 +13,16 @@
     "icons": "node scripts/generate-icons.mjs",
     "package": "node scripts/package.mjs",
     "package:selfhost": "node scripts/package.mjs selfhost",
-    "install-host": "node native-host/installer.js"
+    "install-host": "node native-host/installer.js",
+    "build:sea": "node scripts/build-sea.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
     "@playwright/test": "^1.61.1",
+    "esbuild": "^0.25.0",
     "eslint": "^9.39.5",
     "eslint-plugin-no-unsanitized": "^4.1.5",
-    "playwright": "^1.61.1"
+    "playwright": "^1.61.1",
+    "postject": "^1.0.0-alpha.6"
   }
 }

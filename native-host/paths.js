@@ -15,8 +15,9 @@ export function hostHome(platform = process.platform, env = process.env, home = 
   return path.posix.join(home, '.browser-organizer');
 }
 
-// The file/binary the manifest `path` points at. Stays host.js until the SEA
-// binary lands — kept here so that swap is a one-line change.
+// The name of the self-contained SEA executable. `install` targets this binary
+// directly when it is present in the host home; otherwise it falls back to the
+// node launcher (the npx path). Kept here so the name lives in one place.
 export function hostBinName(platform = process.platform) {
-  return platform === 'win32' ? 'host.js' : 'host.js';
+  return platform === 'win32' ? 'browser-organizer-host.exe' : 'browser-organizer-host';
 }

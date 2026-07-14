@@ -21,7 +21,8 @@ test('hostHome does not depend on cwd or an npx cache path', () => {
   assert.equal(a, b); // pure function of home, not of import.meta.url
 });
 
-test('hostBinName is the node entry today, overridable by platform', () => {
-  assert.equal(hostBinName('linux'), 'host.js');
-  assert.equal(hostBinName('win32'), 'host.js');
+test('hostBinName is the SEA binary name, platform-specific', () => {
+  assert.equal(hostBinName('linux'), 'browser-organizer-host');
+  assert.equal(hostBinName('darwin'), 'browser-organizer-host');
+  assert.equal(hostBinName('win32'), 'browser-organizer-host.exe');
 });
