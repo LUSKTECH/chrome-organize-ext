@@ -1,0 +1,146 @@
+name: Release Host
+
+# Builds the SEA binary and per-OS installers on each supported platform,
+# uploads them as artifacts, and on a `host-v*` tag signs/notarizes them and
+# publishes a GitHub Release with SHA256SUMS.
+#
+# Signing is guarded to run ONLY on tag pushes from this repository (never on
+# pull requests or forks, where the secrets are unavailable). Non-tag runs still
+# build and upload unsigned artifacts so the build path stays continuously tested.
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'host-v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            name: windows
+          - os: macos-latest
+            name: macos
+          - os: ubuntu-latest
+            name: linux
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+
+      # 1) Compile the native host into a single self-contained executable.
+      - name: Build SEA binary
+        run: npm run build:sea
+
+      # 2) Package the per-OS installer(s).
+      - name: Package installer (Windows)
+        if: matrix.name == 'windows'
+        shell: pwsh
+        run: |
+          # Inno Setup ships on the windows-latest image via Chocolatey.
+          choco install innosetup --no-progress -y
+          & "${Env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" installer\windows\browser-organizer.iss
+
+      - name: Package installer (macOS)
+        if: matrix.name == 'macos'
+        run: bash installer/macos/build-pkg.sh
+
+      - name: Package installer (Linux)
+        if: matrix.name == 'linux'
+        run: |
+          bash installer/linux/build-deb.sh
+          # rpmbuild is not on ubuntu-latest by default.
+          sudo apt-get update && sudo apt-get install -y rpm
+          bash installer/linux/build-rpm.sh
+          # Ship the portable fallback alongside the binary.
+          cp installer/linux/install.sh dist/
+
+      # 3) Sign — tag pushes on this repo only (secrets absent on PRs/forks).
+      - name: Sign (Windows Authenticode)
+        if: matrix.name == 'windows' && startsWith(github.ref, 'refs/tags/host-v') && github.repository == 'LUSKTECH/chrome-organize-ext'
+        shell: pwsh
+        env:
+          WINDOWS_CERT_BASE64: ${{ secrets.WINDOWS_CERT_BASE64 }}
+          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+        run: |
+          if (-not $Env:WINDOWS_CERT_BASE64) { Write-Error "WINDOWS_CERT_BASE64 secret missing"; exit 1 }
+          [IO.File]::WriteAllBytes("cert.pfx", [Convert]::FromBase64String($Env:WINDOWS_CERT_BASE64))
+          & signtool sign /fd sha256 /f cert.pfx /p $Env:WINDOWS_CERT_PASSWORD `
+            /tr http://timestamp.digicert.com /td sha256 dist\BrowserOrganizerSetup.exe
+          Remove-Item cert.pfx
+
+      - name: Sign + notarize (macOS)
+        if: matrix.name == 'macos' && startsWith(github.ref, 'refs/tags/host-v') && github.repository == 'LUSKTECH/chrome-organize-ext'
+        env:
+          MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+          MACOS_NOTARY_PROFILE: ${{ secrets.MACOS_NOTARY_PROFILE }}
+          MACOS_NOTARY_API_KEY: ${{ secrets.MACOS_NOTARY_API_KEY }}
+          MACOS_NOTARY_API_KEY_ID: ${{ secrets.MACOS_NOTARY_API_KEY_ID }}
+          MACOS_NOTARY_API_ISSUER: ${{ secrets.MACOS_NOTARY_API_ISSUER }}
+        run: |
+          set -eu
+          codesign --force --options runtime --timestamp \
+            --sign "$MACOS_SIGN_IDENTITY" dist/host/browser-organizer-host
+          productsign --sign "$MACOS_SIGN_IDENTITY" dist/BrowserOrganizer.pkg dist/BrowserOrganizer-signed.pkg
+          mv dist/BrowserOrganizer-signed.pkg dist/BrowserOrganizer.pkg
+          printf '%s' "$MACOS_NOTARY_API_KEY" > notary_key.p8
+          xcrun notarytool submit dist/BrowserOrganizer.pkg \
+            --key notary_key.p8 --key-id "$MACOS_NOTARY_API_KEY_ID" --issuer "$MACOS_NOTARY_API_ISSUER" --wait
+          xcrun stapler staple dist/BrowserOrganizer.pkg
+          rm -f notary_key.p8
+
+      # 4) Checksums for every shipped artifact.
+      - name: Generate SHA256SUMS
+        shell: bash
+        run: |
+          cd dist
+          shopt -s nullglob
+          files=(*.exe *.pkg *.deb *.rpm install.sh host/browser-organizer-host host/browser-organizer-host.exe)
+          [ ${#files[@]} -gt 0 ] && sha256sum "${files[@]}" > "SHA256SUMS-${{ matrix.name }}.txt" || true
+          cat "SHA256SUMS-${{ matrix.name }}.txt" || true
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-organizer-host-${{ matrix.name }}
+          path: |
+            dist/*.exe
+            dist/*.pkg
+            dist/*.deb
+            dist/*.rpm
+            dist/install.sh
+            dist/SHA256SUMS-*.txt
+            dist/host/browser-organizer-host
+            dist/host/browser-organizer-host.exe
+          if-no-files-found: ignore
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/host-v') && github.repository == 'LUSKTECH/chrome-organize-ext'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Flatten + combine checksums
+        run: |
+          mkdir -p release
+          find artifacts -type f ! -name 'SHA256SUMS-*.txt' -exec cp {} release/ \;
+          cat artifacts/**/SHA256SUMS-*.txt > release/SHA256SUMS.txt
+          ls -la release
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          fail_on_unmatched_files: false
