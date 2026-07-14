@@ -13,7 +13,7 @@
     "icons": "node scripts/generate-icons.mjs",
     "package": "node scripts/package.mjs",
     "package:selfhost": "node scripts/package.mjs selfhost",
-    "install-host": "node install/install.js"
+    "install-host": "node native-host/installer.js"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

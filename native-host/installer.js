@@ -3,8 +3,8 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { CLI_ADAPTERS } from '../native-host/adapters/catalog.js';
-import { PROD_EXTENSION_ID, hostHome } from '../native-host/paths.js';
+import { CLI_ADAPTERS } from './adapters/catalog.js';
+import { PROD_EXTENSION_ID, hostHome } from './paths.js';
 
 export const HOST_NAME = 'com.browser_organizer.host';
 
@@ -95,7 +95,8 @@ export function buildLauncherScript({ platform, nodePath, hostEntry, vars = [] }
 // Writes a launcher that calls node (absolute path) on host.js, then registers
 // the host manifest for each requested browser. Returns the files it wrote.
 export function defaultHostDir() {
-  return path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'native-host');
+  // installer.js lives in native-host/ — its own directory is the host source dir.
+  return path.dirname(fileURLToPath(import.meta.url));
 }
 
 // Files under native-host/ that make up the runnable host. Copied verbatim into
@@ -186,9 +187,9 @@ export function install({
   return written;
 }
 
-// CLI entry:
-//   node install/install.js <extensionId> [chrome,edge]   → install
-//   node install/install.js uninstall [chrome,edge]        → remove
+// CLI entry (defaults extensionId to the pinned production id):
+//   node native-host/installer.js [<extensionId>] [chrome,edge]   → install
+//   node native-host/installer.js uninstall [chrome,edge]         → remove
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   const runRegistry = (cmds) => {
     for (const argv of cmds || []) {
@@ -202,12 +203,8 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     console.log(removed.length ? 'Removed:\n' + removed.map((f) => '  ' + f).join('\n') : 'Nothing to remove.');
     runRegistry(removed._registryCommands);
   } else {
-    const extensionId = process.argv[2];
+    const extensionId = process.argv[2] || PROD_EXTENSION_ID;
     const browsers = (process.argv[3] || 'chrome,edge').split(',');
-    if (!extensionId) {
-      console.error('Usage:\n  node install/install.js <extensionId> [chrome,edge,chromium]\n  node install/install.js uninstall [chrome,edge]');
-      process.exit(1);
-    }
     const files = install({ extensionId, browsers });
     console.log('Wrote:\n' + files.map((f) => '  ' + f).join('\n'));
     runRegistry(files._registryCommands);

@@ -11,7 +11,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { install, buildHostManifest, HOST_NAME } from '../install/install.js';
+import { install, buildHostManifest, HOST_NAME } from '../native-host/installer.js';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const extPath = path.join(repoRoot, 'extension');

@@ -38,7 +38,7 @@ function walk(dir, base = '') {
 function collect() {
   if (mode === 'store') return walk(path.join(ROOT, 'extension'));
   const files = [];
-  for (const dir of ['extension', 'native-host', 'install']) {
+  for (const dir of ['extension', 'native-host']) {
     for (const f of walk(path.join(ROOT, dir))) files.push({ rel: `${dir}/${f.rel}`, full: f.full });
   }
   for (const doc of ['INSTALL.md', 'README.md', 'PRIVACY.md', 'SECURITY.md']) {

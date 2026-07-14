@@ -20,7 +20,7 @@ import { installActivityListeners } from '../extension/lib/activity-tracker.js';
 import { createNativeClient } from '../extension/lib/native-client.js';
 import { restoreSession, saveSessions, buildSession, listSessions } from '../extension/lib/sessions.js';
 import { checkDeadLinks } from '../extension/lib/bookmark-health.js';
-import { install } from '../install/install.js';
+import { install } from '../native-host/installer.js';
 
 // ---- parser / dispatch / executor / undo error paths ----
 test('parseJsonBlock throws when a brace never balances', () => {
@@ -209,7 +209,7 @@ test('install() writes launcher + manifest (linux) and returns registry commands
     assert.deepEqual(win._registryCommands[0].slice(0, 2), ['reg', 'add']);
 
     // uninstall removes the linux manifest and returns win32 registry-delete argv
-    const { uninstall } = await import('../install/install.js');
+    const { uninstall } = await import('../native-host/installer.js');
     const removed = uninstall({ browsers: ['chrome'], platform: 'linux', home, hostDir });
     assert.ok(removed.some((f) => f.includes('NativeMessagingHosts')));
     for (const f of removed) assert.ok(!fs.existsSync(f), `removed: ${f}`);

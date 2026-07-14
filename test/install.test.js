@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { HOST_NAME, manifestDir, buildHostManifest, buildLauncherScript, registryCommands, winManifestPath } from '../install/install.js';
+import { HOST_NAME, manifestDir, buildHostManifest, buildLauncherScript, registryCommands, winManifestPath } from '../native-host/installer.js';
 
 test('manifestDir resolves per browser on linux', () => {
   const d = manifestDir('chrome', 'linux', '/home/u');
@@ -50,7 +50,7 @@ test('winManifestPath is under the native host dir', () => {
 import os from 'node:os';
 import fs from 'node:fs';
 import path from 'node:path';
-import { install, copyHostTo, uninstall, repair } from '../install/install.js';
+import { install, copyHostTo, uninstall, repair } from '../native-host/installer.js';
 import { PROD_EXTENSION_ID } from '../native-host/paths.js';
 
 test('copyHostTo copies host sources but not generated launchers', () => {

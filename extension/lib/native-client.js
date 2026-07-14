@@ -1,6 +1,6 @@
 import { uniqueId } from './ids.js';
 
-// Must byte-match install/install.js HOST_NAME (asserted by test/host-name.test.js).
+// Must byte-match native-host/installer.js HOST_NAME (asserted by test/host-name.test.js).
 export const HOST_NAME = 'com.browser_organizer.host';
 
 // A long-lived native messaging port keeps the service worker alive while a
