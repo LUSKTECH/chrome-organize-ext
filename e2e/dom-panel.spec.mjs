@@ -1,17 +1,21 @@
 import { test, expect, send, createBookmark, searchBookmarks, queryTabs, queryGroups } from './fixtures.mjs';
 
 // Exercises the side-panel DOM directly (clicks, form edits) rather than the
-// message API, so the rendering and event handlers are actually tested.
-test.describe.configure({ mode: 'serial' });
-
+// message API, so the rendering and event handlers are actually tested. No
+// `mode: 'serial'` — the tests are independent (each sets up its own state) and
+// the global config already runs one worker with no parallelism.
 const DUP_URL = 'https://developer.mozilla.org/en-US/docs/Web/';
 
-test('UI: "Clean bookmarks" surfaces a duplicate, "Apply all" deletes it, toast "Undo" restores it', async ({ panel }) => {
-  // Quarantined in CI: the renderer reproducibly closes the page during this flow
-  // under headed Chromium/xvfb on GitHub runners (not an assertion failure, and
-  // unreproducible locally). The cleanBookmarks feature itself is covered in CI by
-  // bookmark-cleanup.spec.mjs (message API); this DOM click-path still runs locally.
+// The two DOM-driven cleanBookmarks flows below reproducibly close the page under
+// headed Chromium/xvfb on GitHub runners (a renderer crash, not an assertion
+// failure; unreproducible locally). The cleanBookmarks feature is covered in CI by
+// bookmark-cleanup.spec.mjs via the message API, so these DOM click-paths are
+// quarantined in CI and still run locally.
+const skipCleanBookmarksInCI = () =>
   test.skip(!!process.env.CI, 'headed-xvfb renderer closes the page in CI; feature covered by bookmark-cleanup.spec');
+
+test('UI: "Clean bookmarks" surfaces a duplicate, "Apply all" deletes it, toast "Undo" restores it', async ({ panel }) => {
+  skipCleanBookmarksInCI();
   await createBookmark(panel, { parentId: '1', title: 'MDN', url: 'https://developer.mozilla.org/en-US/docs/Web' });
   await createBookmark(panel, { parentId: '1', title: 'MDN copy', url: DUP_URL });
 
@@ -28,6 +32,7 @@ test('UI: "Clean bookmarks" surfaces a duplicate, "Apply all" deletes it, toast 
 });
 
 test('UI: "Clear list" empties the suggestions and the stored plan', async ({ panel }) => {
+  skipCleanBookmarksInCI();
   await createBookmark(panel, { parentId: '1', title: 'MDN', url: 'https://developer.mozilla.org/en-US/docs/Web' });
   await createBookmark(panel, { parentId: '1', title: 'MDN copy', url: DUP_URL });
 
