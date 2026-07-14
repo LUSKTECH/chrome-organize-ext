@@ -9,7 +9,7 @@
   "keywords": ["chrome-extension", "native-messaging", "browser-organizer", "native-host"],
   "license": "MIT",
   "author": "Lusk Technologies",
-  "homepage": "https://lusk.app/browser-organizer",
+  "homepage": "https://lusk.dev/browser-organizer",
   "repository": { "type": "git", "url": "git+https://github.com/LUSKTECH/chrome-organize-ext.git" },
   "bugs": { "url": "https://github.com/LUSKTECH/chrome-organize-ext/issues" },
   "publishConfig": { "access": "public" },

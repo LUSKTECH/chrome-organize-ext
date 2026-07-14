@@ -42,7 +42,7 @@ Version: $VERSION
 Section: utils
 Priority: optional
 Architecture: $ARCH
-Maintainer: Lusk Technologies <hello@lusk.app>
+Maintainer: Lusk Technologies <hello@lusk.dev>
 Homepage: https://lusk.tech
 Description: Browser Organizer native messaging host
  Local helper that lets the Browser Organizer browser extension talk to your

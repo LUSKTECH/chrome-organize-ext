@@ -1,6 +1,6 @@
 # @lusktech/browser-organizer-host
 
-The local **native-messaging host** for the [Browser Organizer](https://lusk.app/browser-organizer)
+The local **native-messaging host** for the [Browser Organizer](https://lusk.dev/browser-organizer)
 Chrome/Edge extension. The extension is only a front-end; this package is the small Node
 program it talks to, which runs your chosen AI backend (a local AI CLI, or an
 OpenAI-compatible API) and returns organization suggestions. **Nothing is sent to any server

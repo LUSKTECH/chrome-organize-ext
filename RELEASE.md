@@ -10,8 +10,8 @@ non-technical users. Anything marked **(you)** needs a human — the rest is aut
 - [x] `npm run lint` clean (pre-existing browser-global lint errors in crypto-box/secret-store excepted)
 - [x] Icons present (`npm run icons`) and referenced in manifest
 - [x] `CHANGELOG.md` / version bumped in `extension/manifest.json` (and `native-host/package.json` for a host release)
-- [x] Contact email wired in (`hello@lusk.app`) and privacy URL set
-      (`https://lusk.app/browser-organizer/privacy`)
+- [x] Contact email wired in (`hello@lusk.dev`) and privacy URL set
+      (`https://lusk.dev/browser-organizer/privacy`)
 
 ## The native host installs to a stable per-user home
 Every path below registers the helper into `~/.browser-organizer` (macOS/Linux) or
@@ -49,7 +49,7 @@ Build & submit:
    `install.sh`), signs + notarizes (once certs exist), emits `SHA256SUMS`, and attaches all
    artifacts to a GitHub Release.
 2. `npm run package` → `dist/browser-organizer-<version>.zip` (extension only).
-3. **(you)** Deploy `docs/privacy.html` to https://lusk.app/browser-organizer/privacy.
+3. **(you)** Deploy `docs/privacy.html` to https://lusk.dev/browser-organizer/privacy.
 4. **(you)** Capture ≥1 screenshot at 1280×800 (side panel with suggestions).
 5. **(you)** Create accounts: Chrome Web Store developer ($5 one-time) / Edge Partner Center
    (free).

@@ -23,6 +23,6 @@ extension operator receives none of this data and operates no server that stores
   this lives in the browser's local storage on your device and is never synced off it.
 - **What we never do:** sell data, run analytics, or transmit your data to the developer.
 
-Contact: hello@lusk.app
+Contact: hello@lusk.dev
 
-Policy URL: https://lusk.app/browser-organizer/privacy
+Policy URL: https://lusk.dev/browser-organizer/privacy

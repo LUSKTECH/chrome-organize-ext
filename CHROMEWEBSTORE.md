@@ -3,7 +3,7 @@
 _Last updated: 2026-07-14_
 
 **Publisher:** Lusk Technologies · **Website:** https://lusk.tech ·
-**Privacy policy:** https://lusk.app/browser-organizer/privacy · **Contact:** hello@lusk.app
+**Privacy policy:** https://lusk.dev/browser-organizer/privacy · **Contact:** hello@lusk.dev
 
 ## Short description (≤132 chars)
 Organize tabs & bookmarks with your own AI (local CLI or API): group tabs, close stale ones, tidy bookmarks. Review or auto-apply.
@@ -38,8 +38,8 @@ ever sent to our servers — we operate none.
   The extension never reads page contents — it only checks the HTTP status.
 
 ## Privacy
-Privacy policy URL: **https://lusk.app/browser-organizer/privacy** (source: `docs/privacy.html`).
-Contact email: **hello@lusk.app**. Enter both in the store's privacy/contact fields.
+Privacy policy URL: **https://lusk.dev/browser-organizer/privacy** (source: `docs/privacy.html`).
+Contact email: **hello@lusk.dev**. Enter both in the store's privacy/contact fields.
 Tab titles and URLs (query strings/fragments stripped, private/loopback hosts coarsened to
 origin, embedded credentials removed) are sent to your AI provider under your own
 subscription, via your local helper. Bookmarks and history are never sent anywhere. No data
@@ -77,8 +77,8 @@ Key safety facts:
 - [x] Upload zip built from `extension/` only (`npm run package` → `dist/`)
 - [ ] Store icon shown on the listing page (128×128 — reuse `icons/icon-128.png`)
 - [ ] At least one screenshot at 1280×800 or 640×400 (side panel with suggestions)
-- [ ] Deploy `docs/privacy.html` to https://lusk.app/browser-organizer/privacy; enter it +
-      hello@lusk.app in the store, and fill the data-use form
+- [ ] Deploy `docs/privacy.html` to https://lusk.dev/browser-organizer/privacy; enter it +
+      hello@lusk.dev in the store, and fill the data-use form
 - [ ] Chrome Web Store developer account ($5 one-time) / Edge Partner Center account (free)
 - [ ] After first publish, confirm the store-assigned extension ID matches the `key`-derived ID
       so the native host `allowed_origins` remains correct
