@@ -15,10 +15,10 @@ export default [
       globals: {
         chrome: 'readonly', OffscreenCanvas: 'readonly', document: 'readonly', window: 'readonly',
         navigator: 'readonly', fetch: 'readonly', AbortController: 'readonly', URL: 'readonly',
-        Blob: 'readonly', btoa: 'readonly', console: 'readonly', globalThis: 'readonly',
+        Blob: 'readonly', btoa: 'readonly', atob: 'readonly', console: 'readonly', globalThis: 'readonly',
         setTimeout: 'readonly', clearTimeout: 'readonly', setInterval: 'readonly', clearInterval: 'readonly',
         Buffer: 'readonly', process: 'readonly', structuredClone: 'readonly', TextEncoder: 'readonly',
-        queueMicrotask: 'readonly',
+        TextDecoder: 'readonly', crypto: 'readonly', indexedDB: 'readonly', queueMicrotask: 'readonly',
       },
     },
     rules: {

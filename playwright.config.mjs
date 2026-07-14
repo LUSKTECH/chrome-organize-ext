@@ -7,7 +7,9 @@ export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
   workers: 1,
-  retries: 0,
+  // Headed Chromium under xvfb can transiently drop the page/context in CI; retry
+  // there so a flake doesn't fail the job. Locally, fail fast (no retries).
+  retries: process.env.CI ? 2 : 0,
   timeout: 60000,
   expect: { timeout: 10000 },
   reporter: [['list'], ['html', { open: 'never' }]],

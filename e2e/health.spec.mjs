@@ -1,6 +1,8 @@
 import { test, expect, send } from './fixtures.mjs';
 
 test('native bridge: panel reports the Claude CLI connected', async ({ panel }) => {
+  // Needs a working backend (the `claude` CLI). Skipped in offline/CI runs.
+  test.skip(process.env.BORG_SKIP_CLI === '1', 'CLI tests disabled via BORG_SKIP_CLI');
   const res = await send(panel, { cmd: 'health' });
   expect(res.ok).toBeTruthy();
   expect(res.health.ready, `health error: ${res.health && res.health.error}`).toBe(true);
