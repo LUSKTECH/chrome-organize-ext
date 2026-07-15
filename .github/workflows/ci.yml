@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
 
+# Least privilege: every job here only checks out and runs node, so read-only
+# access to the repo contents is all they need.
+permissions:
+  contents: read
+
 jobs:
   unit:
     runs-on: ubuntu-latest

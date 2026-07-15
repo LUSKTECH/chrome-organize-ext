@@ -16,8 +16,8 @@ test('runCommand applies whitelist + ignore-list via finalizePlan (safety contro
   const settings = { adapter: 'claude', decisions: {}, whitelist: ['github.com'], ignore: [] };
   const items = await runCommand('close old tabs', { nativeClient, chromeApi, settings });
   const urls = items.filter((i) => i.action === 'closeTab').map((i) => i.data.url);
-  assert.ok(!urls.some((u) => u.includes('github.com')), 'whitelisted host dropped on command path');
-  assert.ok(urls.some((u) => u.includes('other.com')), 'non-whitelisted tab kept');
+  assert.ok(!urls.some((u) => new URL(u).hostname === 'github.com'), 'whitelisted host dropped on command path');
+  assert.ok(urls.some((u) => new URL(u).hostname === 'other.com'), 'non-whitelisted tab kept');
 });
 
 test('projectTabsForHost coarsens private/localhost URLs to origin only', () => {
@@ -232,7 +232,7 @@ test('recordDecision + decisionRules surface repeated rejects as keep-rules', ()
   d = recordDecision(d, item, 'reject');
   d = recordDecision(d, item, 'reject');
   const rules = decisionRules(d);
-  assert.ok(rules.keep.some((r) => r.includes('mail.google.com')));
+  assert.ok(rules.keep.includes('Do not suggest actions on https://mail.google.com/x'));
 });
 
 test('sliceForScan returns a batch and wraps the cursor', () => {

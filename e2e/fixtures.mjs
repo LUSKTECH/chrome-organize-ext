@@ -39,7 +39,10 @@ export const test = base.extend({
         res.end(JSON.stringify({ data: [], choices: [{ message: { content: '{"groups":[],"close":[],"important":[]}' } }] }));
         return;
       }
-      const title = PAGES[req.url] || `Page ${req.url}`;
+      // req.url is reflected into the page, so escape it — the fixture is a
+      // throwaway localhost server, but this keeps the response injection-free.
+      const esc = (s) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+      const title = esc(PAGES[req.url] || `Page ${req.url}`);
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       res.end(`<!doctype html><html><head><title>${title}</title></head><body><h1>${title}</h1></body></html>`);
     });
