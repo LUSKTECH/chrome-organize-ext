@@ -48,7 +48,9 @@ Build & submit:
    win/mac/ubuntu, packages the installers (Inno `.exe` / `.pkg` / `.deb`/`.rpm` /
    `install.sh`), signs + notarizes (once certs exist), emits `SHA256SUMS`, and attaches all
    artifacts to a GitHub Release.
-2. `npm run package` → `dist/browser-organizer-<version>.zip` (extension only).
+2. `npm run package` → `dist/browser-organizer-extension-<version>.zip` (extension only).
+   (Also produced automatically and attached to the `host-v*` release; versioned by
+   `extension/manifest.json`, independent of the host version.)
 3. **(you)** Deploy `docs/privacy.html` to https://lusk.dev/browser-organizer/privacy.
 4. **(you)** Capture ≥1 screenshot at 1280×800 (side panel with suggestions).
 5. **(you)** Create accounts: Chrome Web Store developer ($5 one-time) / Edge Partner Center

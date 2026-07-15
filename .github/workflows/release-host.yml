@@ -56,6 +56,17 @@ jobs:
       - name: Build SEA binary
         run: npm run build:sea
 
+      # Extension zips are OS-independent, so build them once on the Linux runner:
+      # the Web Store / Edge upload (extension/ only) and the self-host bundle
+      # (extension + native-host source). They match the browser-organizer-* upload
+      # glob below, so they flow into checksums and the GitHub Release automatically.
+      # Note: these are versioned by extension/manifest.json, independent of host-v*.
+      - name: Package extension (Linux only)
+        if: matrix.name == 'linux'
+        run: |
+          npm run package
+          npm run package:selfhost
+
       # 2) Package the per-OS installer(s).
       - name: Package installers (Windows)
         if: matrix.name == 'windows'
