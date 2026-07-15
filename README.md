@@ -22,7 +22,7 @@ Choose a backend in **Settings → AI backend**. The extension hands each reques
 
 Seven backends ship today. The first six are command-line tools; the last talks to an HTTP API directly.
 
-| Backend | Command | How it's invoked | Auth |
+| Backend | Command / transport | How it's invoked | Auth |
 |---------|---------|------------------|------|
 | Claude Code *(default)* | `claude` | `claude -p --output-format json` | saved `claude` login |
 | Antigravity | `agy` | `agy -p "<prompt>" --yes --no-color` | saved `agy` login, or `GEMINI_API_KEY` / `ANTIGRAVITY_API_KEY` |
@@ -32,7 +32,7 @@ Seven backends ship today. The first six are command-line tools; the last talks 
 | Ollama | `ollama` | `ollama run <model>` (prompt on stdin) | none; fully local |
 | OpenAI-compatible API | HTTP | `POST <base>/chat/completions` | API key in **Settings** (encrypted at rest), or `BROWSER_ORGANIZER_OPENAI_API_KEY` |
 
-Claude is the default only because it sits first in the list; once you select any of the seven, they all work the same way. Five of the six CLIs return plain text and Claude returns JSON, but either way the host pulls out the strict JSON that the extension's prompts request.
+Claude Code is the backend the extension falls back to when you haven't picked one; switch to any of the other six in **Settings** and they all work the same way. Five of the six CLIs return plain text and Claude returns JSON, but either way the host pulls out the strict JSON that the extension's prompts request.
 
 The installer bakes in the absolute path of each CLI it finds. To override where a binary lives, set its env var: `BROWSER_ORGANIZER_CLI` (Claude), `BROWSER_ORGANIZER_ANTIGRAVITY_CMD`, `BROWSER_ORGANIZER_KIRO_CMD`, `BROWSER_ORGANIZER_COPILOT_CMD`, `BROWSER_ORGANIZER_CODEX_CMD`, or `BROWSER_ORGANIZER_OLLAMA_CMD`. Ollama's model comes from `BROWSER_ORGANIZER_OLLAMA_MODEL` (default `llama3.2`). If a CLI authenticates with an API key, export that key in the environment the browser launches from; the host inherits it.
 
