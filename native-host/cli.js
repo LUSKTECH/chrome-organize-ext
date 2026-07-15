@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { install, repair, uninstall } from './installer.js';
+import { install, repair, uninstall, runRegistryCommands } from './installer.js';
 import { PROD_EXTENSION_ID } from './paths.js';
 
 const COMMANDS = new Set(['install', 'repair', 'uninstall']);
@@ -20,12 +20,14 @@ export function main(argv = process.argv.slice(2)) {
   if (cmd === 'uninstall') {
     const removed = uninstall({ browsers });
     console.log(removed.length ? 'Removed:\n' + removed.map((f) => '  ' + f).join('\n') : 'Nothing to remove.');
+    runRegistryCommands(removed._registryCommands); // win32: deregister from the registry
     return;
   }
   const fn = cmd === 'repair' ? repair : install;
   const written = fn({ extensionId, browsers });
   console.log(`${cmd === 'repair' ? 'Repaired' : 'Installed'} Browser Organizer host:\n` +
     written.map((f) => '  ' + f).join('\n'));
+  runRegistryCommands(written._registryCommands); // win32: register the host in the registry
   console.log('\nOpen the extension side panel and click the reload icon.');
 }
 

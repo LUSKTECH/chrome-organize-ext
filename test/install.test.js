@@ -50,7 +50,7 @@ test('winManifestPath is under the native host dir', () => {
 import os from 'node:os';
 import fs from 'node:fs';
 import path from 'node:path';
-import { install, copyHostTo, uninstall, repair } from '../native-host/installer.js';
+import { install, copyHostTo, uninstall, repair, runRegistryCommands } from '../native-host/installer.js';
 import { PROD_EXTENSION_ID, hostBinName } from '../native-host/paths.js';
 
 test('copyHostTo copies host sources but not generated launchers', () => {
@@ -136,4 +136,22 @@ test('install without a binary still copies sources and writes run.sh (npx path)
   assert.equal(manifest.path, launcher);
   assert.ok(fs.existsSync(path.join(copyTo, 'host.js')));
   fs.rmSync(home, { recursive: true, force: true });
+});
+
+test('runRegistryCommands runs each argv via the injected spawn (no shell) and no-ops on none', () => {
+  const calls = [];
+  runRegistryCommands(
+    [
+      ['reg', 'add', 'HKCU\\...\\host', '/ve', '/d', 'C:\\p.json', '/f'],
+      ['reg', 'add', 'HKCU\\...\\host2', '/f'],
+    ],
+    (bin, args) => calls.push({ bin, args }),
+  );
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].bin, 'reg');
+  assert.deepEqual(calls[0].args, ['add', 'HKCU\\...\\host', '/ve', '/d', 'C:\\p.json', '/f']);
+  // undefined (non-win32 install returns no _registryCommands) is a safe no-op.
+  const c2 = [];
+  runRegistryCommands(undefined, (b) => c2.push(b));
+  assert.equal(c2.length, 0);
 });

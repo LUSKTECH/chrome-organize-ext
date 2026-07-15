@@ -1,7 +1,11 @@
 # Changelog
 
-## 0.1.1 — 2026-07-14
-Metadata + tooling fix (host package only; no functional changes).
+## 0.1.1 — 2026-07-15
+Host package fixes.
+- **Windows: `npx` install now registers the native host.** The `bin` (`cli.js`) skipped the
+  `reg add` step, so on Windows the manifest was written but never registered — the browser
+  (which finds native hosts via the registry there) couldn't reach it. `install`/`repair`/
+  `uninstall` now run the registry commands via a shared `runRegistryCommands` helper.
 - Corrected the npm package `homepage` (lusk.dev) and `repository` URL
   (`LUSKTECH/browser-organizer`) — the 0.1.0 metadata pointed at the old domain/repo name.
 - Fixed CI: `esbuild`/`postject` are fetched on demand via `npx` in `build:sea`, so they were

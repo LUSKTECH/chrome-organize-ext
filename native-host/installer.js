@@ -68,6 +68,17 @@ export function registryDeleteCommands(browsers) {
   });
 }
 
+// Runs the win32 registry argv arrays returned by install()/uninstall() (no shell,
+// so a manifest path with " & % can't inject). No-op off win32 / when there are
+// none. Callers (installer CLI and the npm `bin`) must invoke this on Windows —
+// the browser finds native hosts via the registry there, not the manifest file.
+export function runRegistryCommands(cmds, spawnFn = spawnSync) {
+  for (const argv of cmds || []) {
+    console.log('Running: ' + argv.join(' '));
+    spawnFn(argv[0], argv.slice(1), { stdio: 'inherit' });
+  }
+}
+
 // Resolves the absolute path to the `claude` CLI using the platform's lookup
 // tool (which/where). Host-side only — never influenced by extension messages.
 export function resolveCliPath(platform = process.platform, spawnSyncFn = spawnSync, binary = 'claude') {
@@ -205,22 +216,16 @@ export function install({
 // import.meta.url is undefined inside the SEA bundle, where this file is imported
 // (not run as the entry) — guard so importing installer.js never throws there.
 if (import.meta.url && process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
-  const runRegistry = (cmds) => {
-    for (const argv of cmds || []) {
-      console.log('Running: ' + argv.join(' '));
-      spawnSync(argv[0], argv.slice(1), { stdio: 'inherit' }); // no shell → no metachar injection
-    }
-  };
   if (process.argv[2] === 'uninstall') {
     const browsers = (process.argv[3] || 'chrome,edge').split(',');
     const removed = uninstall({ browsers });
     console.log(removed.length ? 'Removed:\n' + removed.map((f) => '  ' + f).join('\n') : 'Nothing to remove.');
-    runRegistry(removed._registryCommands);
+    runRegistryCommands(removed._registryCommands);
   } else {
     const extensionId = process.argv[2] || PROD_EXTENSION_ID;
     const browsers = (process.argv[3] || 'chrome,edge').split(',');
     const files = install({ extensionId, browsers });
     console.log('Wrote:\n' + files.map((f) => '  ' + f).join('\n'));
-    runRegistry(files._registryCommands);
+    runRegistryCommands(files._registryCommands);
   }
 }
