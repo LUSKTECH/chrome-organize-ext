@@ -78,6 +78,6 @@ const eocd = Buffer.alloc(22);
 eocd.writeUInt32LE(0x06054b50, 0);
 eocd.writeUInt16LE(files.length, 8); eocd.writeUInt16LE(files.length, 10);
 eocd.writeUInt32LE(centralBuf.length, 12); eocd.writeUInt32LE(offset, 16);
-const outPath = path.join(outDir, mode === 'store' ? `browser-organizer-extension-${version}.zip` : `browser-organizer-selfhost-${version}.zip`);
+const outPath = path.join(outDir, `browser-organizer-${mode === 'store' ? 'extension' : 'selfhost'}-${version}.zip`);
 fs.writeFileSync(outPath, Buffer.concat([...parts, centralBuf, eocd]));
 console.log(`[${mode}] packaged ${files.length} files → ${path.relative(ROOT, outPath)} (${(fs.statSync(outPath).size / 1024).toFixed(1)} KB)`);
