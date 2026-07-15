@@ -39,7 +39,27 @@ with `… repair`, and remove it with `… uninstall`.
 
 **B. No Node / prefer a double-click:** download the installer for your OS from the
 [releases page](https://github.com/LUSKTECH/browser-organizer/releases) and run it. It ships
-a self-contained helper (no Node required) and registers it for Chrome and Edge.
+a self-contained helper (no Node required) and registers it for Chrome and Edge. On Windows
+this is `BrowserOrganizerSetup.exe` — a **per-user** install (no admin rights).
+
+**B2. Windows administrators (per-machine MSI):** for fleet deployment, use
+`BrowserOrganizer.msi` instead of the EXE. It installs the helper under `Program Files` and
+registers the native-messaging host in **HKLM** so every user on the machine can reach it
+(requires elevation). It supports silent install and standard `msiexec` deployment flags:
+
+```
+msiexec /i BrowserOrganizer.msi /qn /norestart                 :: silent install
+msiexec /i BrowserOrganizer.msi /qn /l*v install.log           :: with a verbose log
+msiexec /i BrowserOrganizer.msi INSTALLFOLDER="C:\Apps\BrowserOrganizer" /qn
+msiexec /i BrowserOrganizer.msi EDGE=0 /qn                      :: register Chrome only
+msiexec /i BrowserOrganizer.msi CHROME=0 /qn                    :: register Edge only
+msiexec /i BrowserOrganizer.msi CHROMIUM=1 /qn                  :: also register Chromium
+msiexec /x BrowserOrganizer.msi /qn                             :: uninstall
+```
+
+Public properties: `INSTALLFOLDER`, `CHROME` (default 1), `EDGE` (default 1), `CHROMIUM`
+(default 0). Deploy it via GPO, Intune, or SCCM; a newer MSI upgrades an older install in
+place. (The MSI is per-machine; the EXE/npx paths are per-user — don't mix them.)
 
 **C. From a cloned repo / self-host bundle (developers):**
 

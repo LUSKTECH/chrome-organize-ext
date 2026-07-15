@@ -2,7 +2,8 @@ name: Release Host
 
 # Builds the SEA binary and per-OS installers on each supported platform,
 # uploads them as artifacts, and on a `host-v*` tag signs/notarizes them and
-# publishes a GitHub Release with SHA256SUMS.
+# publishes a GitHub Release with SHA256SUMS. Windows ships two: a per-user EXE
+# (Inno Setup) for end users and a per-machine MSI (WiX) for administrators.
 #
 # Signing is guarded to run ONLY on tag pushes from this repository (never on
 # pull requests or forks, where the secrets are unavailable). Non-tag runs still
@@ -38,18 +39,36 @@ jobs:
           cache: npm
       - run: npm ci
 
+      # Version: from the host-v<x.y.z> tag when tagged, else package.json.
+      - name: Resolve version
+        id: ver
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/host-v* ]]; then
+            V="${GITHUB_REF#refs/tags/host-v}"
+          else
+            V="$(node -p "require('./native-host/package.json').version")"
+          fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "Version: $V"
+
       # 1) Compile the native host into a single self-contained executable.
       - name: Build SEA binary
         run: npm run build:sea
 
       # 2) Package the per-OS installer(s).
-      - name: Package installer (Windows)
+      - name: Package installers (Windows)
         if: matrix.name == 'windows'
         shell: pwsh
         run: |
-          # Inno Setup ships on the windows-latest image via Chocolatey.
+          $ver = "${{ steps.ver.outputs.version }}"
+          # EXE (Inno Setup) — per-user installer for end users. Ships on the runner via Chocolatey.
           choco install innosetup --no-progress -y
-          & "${Env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" installer\windows\browser-organizer.iss
+          & "${Env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /DAppVersion=$ver installer\windows\browser-organizer.iss
+          # MSI (WiX) — per-machine installer for administrators.
+          dotnet tool install --global wix
+          $env:PATH = "$env:USERPROFILE\.dotnet\tools;$env:PATH"
+          wix build installer\windows\browser-organizer.wxs -d Version=$ver -arch x64 -o dist\BrowserOrganizer.msi
 
       - name: Package installer (macOS)
         if: matrix.name == 'macos'
@@ -75,8 +94,10 @@ jobs:
         run: |
           if (-not $Env:WINDOWS_CERT_BASE64) { Write-Error "WINDOWS_CERT_BASE64 secret missing"; exit 1 }
           [IO.File]::WriteAllBytes("cert.pfx", [Convert]::FromBase64String($Env:WINDOWS_CERT_BASE64))
-          & signtool sign /fd sha256 /f cert.pfx /p $Env:WINDOWS_CERT_PASSWORD `
-            /tr http://timestamp.digicert.com /td sha256 dist\BrowserOrganizerSetup.exe
+          foreach ($f in @("dist\BrowserOrganizerSetup.exe", "dist\BrowserOrganizer.msi")) {
+            & signtool sign /fd sha256 /f cert.pfx /p $Env:WINDOWS_CERT_PASSWORD `
+              /tr http://timestamp.digicert.com /td sha256 $f
+          }
           Remove-Item cert.pfx
 
       - name: Sign + notarize (macOS)
@@ -105,7 +126,7 @@ jobs:
         run: |
           cd dist
           shopt -s nullglob
-          files=(*.exe *.pkg *.deb *.rpm install.sh host/browser-organizer-host host/browser-organizer-host.exe)
+          files=(*.exe *.msi *.pkg *.deb *.rpm install.sh host/browser-organizer-host host/browser-organizer-host.exe)
           [ ${#files[@]} -gt 0 ] && sha256sum "${files[@]}" > "SHA256SUMS-${{ matrix.name }}.txt" || true
           cat "SHA256SUMS-${{ matrix.name }}.txt" || true
 
@@ -115,6 +136,7 @@ jobs:
           name: browser-organizer-host-${{ matrix.name }}
           path: |
             dist/*.exe
+            dist/*.msi
             dist/*.pkg
             dist/*.deb
             dist/*.rpm
