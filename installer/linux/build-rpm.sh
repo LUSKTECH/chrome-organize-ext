@@ -43,8 +43,8 @@ URL:            https://lusk.tech
 BuildArch:      $ARCH
 %description
 Local helper that lets the Browser Organizer browser extension talk to your AI
-CLI or an OpenAI-compatible endpoint. After install, run
-'browser-organizer-host --install' to register it for Chrome/Edge (per-user).
+CLI or an OpenAI-compatible endpoint. Registered system-wide for Chrome,
+Chromium, and Edge on install (available to all users on this machine).
 
 %install
 mkdir -p %{buildroot}/usr/lib/browser-organizer %{buildroot}/usr/bin
@@ -56,8 +56,30 @@ ln -s ../lib/browser-organizer/browser-organizer-host %{buildroot}/usr/bin/brows
 /usr/bin/browser-organizer-host
 
 %post
-echo "Browser Organizer host installed. Each user should run once:"
-echo "    browser-organizer-host --install chrome,edge"
+# Register the native host system-wide for all users (\$ escaped so these stay
+# literal in the generated spec, not expanded when this heredoc is written).
+for dir in /etc/opt/chrome/native-messaging-hosts /etc/chromium/native-messaging-hosts /etc/opt/edge/native-messaging-hosts; do
+  mkdir -p "\$dir"
+  cat > "\$dir/com.browser_organizer.host.json" <<'JSON'
+{
+  "name": "com.browser_organizer.host",
+  "description": "Browser Organizer native host",
+  "path": "/usr/lib/browser-organizer/browser-organizer-host",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://jjacbpnaekkhbfpncfhmignbiocddocc/"
+  ]
+}
+JSON
+done
+echo "Browser Organizer host registered system-wide (Chrome, Chromium, Edge)."
+
+%postun
+if [ "\$1" = 0 ]; then
+  for dir in /etc/opt/chrome/native-messaging-hosts /etc/chromium/native-messaging-hosts /etc/opt/edge/native-messaging-hosts; do
+    rm -f "\$dir/com.browser_organizer.host.json"
+  done
+fi
 EOF
 
 rpmbuild --define "_topdir $TOP" -bb "$TOP/SPECS/browser-organizer-host.spec"

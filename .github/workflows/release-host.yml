@@ -78,10 +78,14 @@ jobs:
 
       - name: Package installer (macOS)
         if: matrix.name == 'macos'
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
         run: bash installer/macos/build-pkg.sh
 
       - name: Package installer (Linux)
         if: matrix.name == 'linux'
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
         run: |
           bash installer/linux/build-deb.sh
           # rpmbuild is not on ubuntu-latest by default.
@@ -126,14 +130,36 @@ jobs:
           xcrun stapler staple dist/BrowserOrganizer.pkg
           rm -f notary_key.p8
 
-      # 4) Checksums for every shipped artifact.
+      # 3b) Canonical, ecosystem-aware names: browser-organizer[-host]-<version>-<os>-<arch>[.ext].
+      # deb/rpm keep their required naming (name_version_arch.deb, name-version-release.arch.rpm),
+      # which already encodes version + arch. Runs after signing (which used the plain names).
+      - name: Name release artifacts
+        shell: bash
+        env:
+          VER: ${{ steps.ver.outputs.version }}
+          OS: ${{ matrix.name }}
+        run: |
+          cd dist
+          arch=$(uname -m)
+          case "$arch" in x86_64|amd64) arch=x64;; arm64|aarch64) arch=arm64;; esac
+          # Raw SEA binary → versioned, os/arch-tagged copy for direct download.
+          [ -f host/browser-organizer-host.exe ] && cp host/browser-organizer-host.exe "browser-organizer-host-${VER}-${OS}-${arch}.exe" || true
+          [ -f host/browser-organizer-host ] && cp host/browser-organizer-host "browser-organizer-host-${VER}-${OS}-${arch}" || true
+          # Installers.
+          [ -f BrowserOrganizerSetup.exe ] && mv BrowserOrganizerSetup.exe "browser-organizer-${VER}-${OS}-${arch}-setup.exe" || true
+          [ -f BrowserOrganizer.msi ] && mv BrowserOrganizer.msi "browser-organizer-${VER}-${OS}-${arch}.msi" || true
+          [ -f BrowserOrganizer.pkg ] && mv BrowserOrganizer.pkg "browser-organizer-${VER}-${OS}-${arch}.pkg" || true
+          [ -f install.sh ] && mv install.sh "browser-organizer-host-${VER}-linux-install.sh" || true
+          ls -la
+
+      # 4) Checksums for every shipped artifact (portable: sha256sum or shasum).
       - name: Generate SHA256SUMS
         shell: bash
         run: |
           cd dist
-          shopt -s nullglob
-          files=(*.exe *.msi *.pkg *.deb *.rpm install.sh host/browser-organizer-host host/browser-organizer-host.exe)
-          [ ${#files[@]} -gt 0 ] && sha256sum "${files[@]}" > "SHA256SUMS-${{ matrix.name }}.txt" || true
+          sha() { if command -v sha256sum >/dev/null; then sha256sum "$@"; else shasum -a 256 "$@"; fi; }
+          files=$(find . -maxdepth 1 -type f ! -name 'SHA256SUMS*' | sed 's|^\./||' | sort)
+          [ -n "$files" ] && sha $files > "SHA256SUMS-${{ matrix.name }}.txt" || true
           cat "SHA256SUMS-${{ matrix.name }}.txt" || true
 
       - name: Upload artifacts
@@ -141,13 +167,9 @@ jobs:
         with:
           name: browser-organizer-host-${{ matrix.name }}
           path: |
-            dist/*.exe
-            dist/*.msi
-            dist/*.pkg
-            dist/*.deb
-            dist/*.rpm
-            dist/install.sh
+            dist/browser-organizer-*
             dist/SHA256SUMS-*.txt
+          if-no-files-found: ignore
             dist/host/browser-organizer-host
             dist/host/browser-organizer-host.exe
           if-no-files-found: ignore

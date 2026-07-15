@@ -46,18 +46,44 @@ Maintainer: Lusk Technologies <hello@lusk.dev>
 Homepage: https://lusk.tech
 Description: Browser Organizer native messaging host
  Local helper that lets the Browser Organizer browser extension talk to your
- AI CLI or an OpenAI-compatible endpoint. After install, run
- 'browser-organizer-host --install' to register it for Chrome/Edge (per-user).
+ AI CLI or an OpenAI-compatible endpoint. Registered system-wide for Chrome,
+ Chromium, and Edge on install (available to all users on this machine).
 EOF
 
+# postinst: register the native host system-wide for all users. Linux browsers
+# read these /etc locations in addition to each user's ~/.config.
 cat > "$STAGE/DEBIAN/postinst" <<'EOF'
 #!/bin/sh
 set -e
-echo "Browser Organizer host installed. Each user should run once:"
-echo "    browser-organizer-host --install chrome,edge"
+for dir in /etc/opt/chrome/native-messaging-hosts /etc/chromium/native-messaging-hosts /etc/opt/edge/native-messaging-hosts; do
+  mkdir -p "$dir"
+  cat > "$dir/com.browser_organizer.host.json" <<'JSON'
+{
+  "name": "com.browser_organizer.host",
+  "description": "Browser Organizer native host",
+  "path": "/usr/lib/browser-organizer/browser-organizer-host",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://jjacbpnaekkhbfpncfhmignbiocddocc/"
+  ]
+}
+JSON
+done
+echo "Browser Organizer host registered system-wide (Chrome, Chromium, Edge)."
 exit 0
 EOF
 chmod 755 "$STAGE/DEBIAN/postinst"
+
+# postrm: remove the system-wide manifests when the package is removed.
+cat > "$STAGE/DEBIAN/postrm" <<'EOF'
+#!/bin/sh
+set -e
+for dir in /etc/opt/chrome/native-messaging-hosts /etc/chromium/native-messaging-hosts /etc/opt/edge/native-messaging-hosts; do
+  rm -f "$dir/com.browser_organizer.host.json"
+done
+exit 0
+EOF
+chmod 755 "$STAGE/DEBIAN/postrm"
 
 mkdir -p "$ROOT_DIR/dist"
 dpkg-deb --build --root-owner-group "$STAGE" "$OUT"
