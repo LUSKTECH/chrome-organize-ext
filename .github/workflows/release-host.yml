@@ -93,6 +93,14 @@ jobs:
           bash installer/linux/build-rpm.sh
           # Ship the portable fallback alongside the binary.
           cp installer/linux/install.sh dist/
+          # Smoke-test that the .deb registers the host system-wide and removes it cleanly.
+          sudo dpkg -i dist/browser-organizer-host_*.deb
+          test -f /etc/opt/chrome/native-messaging-hosts/com.browser_organizer.host.json
+          test -f /etc/opt/edge/native-messaging-hosts/com.browser_organizer.host.json
+          test -f /etc/chromium/native-messaging-hosts/com.browser_organizer.host.json
+          sudo dpkg -r browser-organizer-host
+          test ! -f /etc/opt/chrome/native-messaging-hosts/com.browser_organizer.host.json
+          echo "deb system-wide register + cleanup verified"
 
       # 3) Sign — tag pushes on this repo only (secrets absent on PRs/forks).
       - name: Sign (Windows Authenticode)
