@@ -66,7 +66,9 @@ jobs:
           choco install innosetup --no-progress -y
           & "${Env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /DAppVersion=$ver installer\windows\browser-organizer.iss
           # MSI (WiX) — per-machine installer for administrators.
-          dotnet tool install --global wix
+          # Pin to WiX v5: v6/v7 gate behind the Open Source Maintenance Fee EULA
+          # (WIX7015), which can't be accepted non-interactively in CI.
+          dotnet tool install --global wix --version 5.0.2
           $env:PATH = "$env:USERPROFILE\.dotnet\tools;$env:PATH"
           wix build installer\windows\browser-organizer.wxs -d Version=$ver -arch x64 -o dist\BrowserOrganizer.msi
 
