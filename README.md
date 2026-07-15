@@ -1,118 +1,97 @@
 # Browser Organizer
 
-A Chrome/Edge extension that uses your own AI backend — a **local AI CLI subscription**
-(no API key) or an **OpenAI-compatible API key** — to group open tabs by topic, close
-forgotten tabs, auto-bookmark important ones, and clean up stale/dead/duplicate bookmarks.
-All page/tab/bookmark data stays on your machine.
+A Chrome and Edge extension that cleans up your tabs and bookmarks with an AI backend you bring yourself. Point it at a local AI CLI you've already signed into, or at any OpenAI-compatible API key. It groups open tabs by topic, flags the ones you forgot were open, files the pages worth keeping into bookmark folders, and clears out stale, dead, and duplicate bookmarks. Nothing happens until you approve it.
+
+Your bookmarks and history stay on your machine. The only data that ever leaves is tab titles and URLs, and only to the provider you picked.
+
+## Screenshots
+
+| Organize a window | Clean up bookmarks | Bring your own AI |
+|:---:|:---:|:---:|
+| ![Grouping open tabs into named tab groups and reviewing the suggestions](docs/screenshots/overview.png) | ![Reviewing duplicate and dead bookmarks before deleting them](docs/screenshots/bookmark-cleanup.png) | ![Choosing an AI backend and toggling what the extension scans](docs/screenshots/settings.png) |
 
 ## Requirements
-- A backend: an OpenAI-compatible API key (no CLI to install) **or** one supported AI CLI
-  installed and signed in (see **AI backends** below)
-- Node.js 20+ for the `npx`/CLI helper install — the standalone per-OS installer needs no Node
-- Chrome 116+ or Edge (Chromium)
+
+- One backend: an OpenAI-compatible API key (nothing to install), or one of six supported AI CLIs you've installed and signed into. See [AI backends](#ai-backends) below.
+- Chrome 116+ or Edge (any recent Chromium build).
+- Node.js 20+ if you register the helper with `npx`. The standalone per-OS installer bundles its own runtime, so it needs no Node.
 
 ## AI backends
-The extension talks to a local AI CLI — or, optionally, an OpenAI-compatible
-HTTP API — through the native host. Pick one in **Settings → AI backend**; the
-host runs it headlessly. All keep secrets host-side (never in the extension);
-only the backend's own provider traffic leaves your machine.
 
-| Backend | CLI/transport | Invocation | Auth |
-|---------|-----|-----------|------|
-| **Claude Code** (default) | `claude` | `claude -p --output-format json` | persisted `claude` login |
-| **Antigravity** | `agy` | `agy -p "<prompt>" --yes --no-color` | persisted `agy` login, or `GEMINI_API_KEY` / `ANTIGRAVITY_API_KEY` |
-| **Kiro** | `kiro-cli` | `kiro-cli chat --no-interactive "<prompt>"` | `KIRO_API_KEY` (Kiro Pro+) |
-| **GitHub Copilot** | `copilot` | `copilot -p "<prompt>" -s --no-ask-user` | Copilot subscription via `COPILOT_GITHUB_TOKEN` / `GH_TOKEN` / existing `gh` login |
-| **OpenAI Codex** | `codex` | `codex exec --skip-git-repo-check "<prompt>"` | persisted ChatGPT login, or `OPENAI_API_KEY` |
-| **Ollama** (local) | `ollama` | `ollama run <model>` (prompt on stdin) | none — fully local; nothing leaves the machine |
-| **OpenAI-compatible API** | HTTP | `POST <base>/chat/completions` | API key entered in **Settings** (encrypted at rest) — or `BROWSER_ORGANIZER_OPENAI_API_KEY` host env |
+Choose a backend in **Settings → AI backend**. The extension hands each request to a small local helper (the native host), which runs that backend and returns the result. Secrets live on the host, never in the extension, and the only traffic leaving your machine is the backend's own call to its provider. Ollama is the exception: it runs the model locally, so with it selected nothing leaves at all.
 
-The installer bakes the absolute path of each CLI it finds into the launcher. To
-override a binary location, set the matching env var: `BROWSER_ORGANIZER_CLI`
-(claude), `BROWSER_ORGANIZER_ANTIGRAVITY_CMD`, `BROWSER_ORGANIZER_KIRO_CMD`,
-`BROWSER_ORGANIZER_COPILOT_CMD`, `BROWSER_ORGANIZER_CODEX_CMD`, or
-`BROWSER_ORGANIZER_OLLAMA_CMD`. The Ollama model is set with
-`BROWSER_ORGANIZER_OLLAMA_MODEL` (default `llama3.2`). Every backend except
-Claude prints plain text; the extension's prompts already request strict JSON,
-which the host extracts. For CLIs that need an API key, export it in the
-environment the browser (and thus the host) is launched from. **Ollama** runs
-models locally, so with it selected no tab/bookmark data leaves your machine.
+Seven backends ship today. The first six are command-line tools; the last talks to an HTTP API directly.
+
+| Backend | Command / transport | How it's invoked | Auth |
+|---------|---------|------------------|------|
+| Claude Code *(default)* | `claude` | `claude -p --output-format json` | saved `claude` login |
+| Antigravity | `agy` | `agy -p "<prompt>" --yes --no-color` | saved `agy` login, or `GEMINI_API_KEY` / `ANTIGRAVITY_API_KEY` |
+| Kiro | `kiro-cli` | `kiro-cli chat --no-interactive "<prompt>"` | `KIRO_API_KEY` (Kiro Pro and up) |
+| GitHub Copilot | `copilot` | `copilot -p "<prompt>" -s --no-ask-user` | Copilot subscription via `COPILOT_GITHUB_TOKEN` / `GH_TOKEN`, or an existing `gh` login |
+| OpenAI Codex | `codex` | `codex exec --skip-git-repo-check "<prompt>"` | saved ChatGPT login, or `OPENAI_API_KEY` |
+| Ollama | `ollama` | `ollama run <model>` (prompt on stdin) | none; fully local |
+| OpenAI-compatible API | HTTP | `POST <base>/chat/completions` | API key in **Settings** (encrypted at rest), or `BROWSER_ORGANIZER_OPENAI_API_KEY` |
+
+Claude Code is the backend the extension falls back to when you haven't picked one; switch to any of the other six in **Settings** and they all work the same way. Five of the six CLIs return plain text and Claude returns JSON, but either way the host pulls out the strict JSON that the extension's prompts request.
+
+The installer bakes in the absolute path of each CLI it finds. To override where a binary lives, set its env var: `BROWSER_ORGANIZER_CLI` (Claude), `BROWSER_ORGANIZER_ANTIGRAVITY_CMD`, `BROWSER_ORGANIZER_KIRO_CMD`, `BROWSER_ORGANIZER_COPILOT_CMD`, `BROWSER_ORGANIZER_CODEX_CMD`, or `BROWSER_ORGANIZER_OLLAMA_CMD`. Ollama's model comes from `BROWSER_ORGANIZER_OLLAMA_MODEL` (default `llama3.2`). If a CLI authenticates with an API key, export that key in the environment the browser launches from; the host inherits it.
 
 ### OpenAI-compatible API backend
-The `openai` backend calls any `/chat/completions`-shaped endpoint directly from
-the native host (no CLI needed).
 
-**Recommended:** pick **OpenAI-compatible API** in **Settings** and enter your API
-key (and optional base URL / model) there. The key is stored **encrypted at rest**
-(AES-GCM, via a non-extractable WebCrypto key) in the browser's local storage on
-this device only — it is never put in `storage.sync` and never leaves your machine
-except to the endpoint you configure. The extension passes it to the local helper
-per request; the helper makes the call.
+This backend calls any `/chat/completions`-shaped endpoint straight from the native host, with no CLI in between.
 
-**Advanced / headless:** you can instead set host-side env vars (these take over
-when no key is entered in the UI):
+The simple path: choose **OpenAI-compatible API** in **Settings** and paste your key there, along with an optional base URL and model. The key is encrypted at rest (AES-GCM, using a non-extractable WebCrypto key) in this browser's local storage on this device. It never lands in `storage.sync`, and it never leaves except as a request to the endpoint you configured. On each request the extension hands it to the local helper, and the helper makes the call.
 
-- `BROWSER_ORGANIZER_OPENAI_API_KEY` — bearer token
-- `BROWSER_ORGANIZER_OPENAI_BASE_URL` — default `https://api.openai.com/v1`
-- `BROWSER_ORGANIZER_OPENAI_MODEL` — default `gpt-4o-mini`
+For headless or scripted setups, skip the UI and set host-side env vars instead. They take over when no key is entered in Settings:
 
-Point the base URL at OpenAI, OpenRouter, Groq, Together, or a local server
-(LM Studio, vLLM) — one adapter covers them all. Unlike the CLI subscriptions,
-this path is **metered/pay-per-token**; a local endpoint keeps data on-device.
+- `BROWSER_ORGANIZER_OPENAI_API_KEY`: bearer token
+- `BROWSER_ORGANIZER_OPENAI_BASE_URL`: default `https://api.openai.com/v1`
+- `BROWSER_ORGANIZER_OPENAI_MODEL`: default `gpt-4o-mini`
+
+One adapter covers OpenAI, OpenRouter, Groq, Together, and local servers like LM Studio or vLLM; just repoint the base URL. Unlike the CLI subscriptions, this route is metered per token, and a local endpoint keeps everything on-device.
 
 ## Install (developer / unpacked)
-> Handing this to testers before the store release? See **[docs/TESTING.md](docs/TESTING.md)** — a
-> short, cross-platform (Windows/macOS/Linux) guide to loading the unpacked build.
 
-1. Load the extension:
-   - Chrome: `chrome://extensions` → Developer mode → **Load unpacked** → select `extension/`
-   - Edge: `edge://extensions` → Developer mode → **Load unpacked** → select `extension/`
-   Note the extension ID (identical in both browsers thanks to the pinned key).
-2. Register the native messaging host (lets the extension call your CLI). From any directory:
+> Handing a build to testers before the store release? [docs/TESTING.md](docs/TESTING.md) is a short, cross-platform walkthrough for loading it on Windows, macOS, and Linux.
+
+1. Load the extension.
+   - Chrome: open `chrome://extensions`, turn on Developer mode, click **Load unpacked**, and pick `extension/`.
+   - Edge: the same steps at `edge://extensions`.
+
+   The extension ID is pinned by a key in the manifest, so it's identical in both browsers and step 2 already knows it.
+2. Register the native messaging host so the extension can reach your backend. From any directory:
    ```
    npx @lusktech/browser-organizer-host
    ```
-   or, from a clone, `node native-host/installer.js` (defaults to the pinned ID + Chrome/Edge).
-   Either way the host is
-   copied into `~/.browser-organizer` (macOS/Linux) / `%LOCALAPPDATA%\BrowserOrganizer`
-   (Windows), so the repo/bundle can be deleted afterward. Non-technical users can instead run
-   the per-OS installer from the releases page (no Node required). See `INSTALL.md`.
-3. Open the side panel (toolbar icon) and click **Analyze my tabs & bookmarks**.
+   From a clone you can instead run `node native-host/installer.js`, which defaults to the pinned ID and registers both Chrome and Edge. Either way the host is copied into `~/.browser-organizer` (macOS/Linux) or `%LOCALAPPDATA%\BrowserOrganizer` (Windows), so the repo or bundle is safe to delete afterward. Non-technical users can grab the per-OS installer from the releases page and skip Node entirely; see [INSTALL.md](INSTALL.md).
+3. Open the side panel from the toolbar icon and click **Analyze my tabs & bookmarks**.
 
 ## How it works
-The extension collects tab/bookmark metadata and sends it to a small local Node host
-over Chrome Native Messaging. The host runs your selected backend (a local AI CLI, or an
-OpenAI-compatible API request) to get organization suggestions, then returns them. Nothing
-is sent to any server other than your chosen provider's normal subscription/API traffic.
-Destructive actions require your approval (or, in auto mode, are logged for one-click undo).
+
+The extension collects tab and bookmark metadata, then passes it to the local Node host over Chrome Native Messaging. The host runs whichever backend you selected, gets a set of suggestions back, and returns them. The only network traffic is your chosen provider's normal subscription or API call; no server of ours sits in the path. Destructive actions wait for your approval, and in auto mode they're logged so one click undoes them.
 
 ## Development
-- `npm test` — run the unit suite (`node --test`, no browser needed)
+
+`npm test` runs the unit suite (`node --test`, no browser needed).
 
 ## End-to-end tests
-`npm run e2e` runs the Playwright behavioral suite (`e2e/`), which loads the real
-extension into Chrome for Testing, drives the side panel, and exercises the full
-pipe including the native `claude` bridge. Deterministic specs (no CLI) plus
-CLI-backed specs (marked *CLI*, skippable):
-- **health** — the panel reports the CLI connected
-- **tab-panel** — the open-tabs search/filter/bulk-close (no AI) closes selected tabs and undo restores them
-- **duplicate-tabs** — detects a duplicate open tab, closes it on apply, restores it on undo
-- **sessions** — saves the current window as a session (closing its tabs) and restores them
-- **bookmark-cleanup** — detects a duplicate bookmark, deletes it on apply, restores it on undo
-- **dom-panel** — drives the real UI: the *Clean bookmarks* button + *Apply all* + toast *Undo*; editing a proposed group (rename, drop a tab) and *Apply this group*; the settings form persisting
-- **auto-apply** — `onInstalled` schedules the alarms; auto mode auto-applies tab actions but never auto-deletes bookmarks
-- **grouping** *(CLI)* — asks Claude to cluster tabs and asserts a real Chrome tab group forms
-- **command** *(CLI)* — a natural-language instruction returns an actionable plan
-- **stale-tabs** *(CLI)* — seeds a long-idle tab and asserts Claude proposes closing/suspending it
 
-Dead-link detection's HTTP logic is covered by a real-server integration test
-(`test/dead-link-integration.test.js`, part of `npm test`). The full in-browser
-dead-link flow isn't automated because granting the optional `<all_urls>`
-permission requires a Chrome permission prompt that can't be accepted headlessly.
+`npm run e2e` runs the Playwright suite in `e2e/`. It loads the real extension into Chrome for Testing, drives the side panel, and exercises the whole path down through the native host. Most specs are deterministic and need no CLI; a few (marked *CLI*) drive a real backend and can be skipped.
 
-Requirements (Linux/WSL/CI): `claude` on PATH, and `xvfb` (the `e2e` script wraps
-the run in `xvfb-run` for a headless virtual display). Google Chrome's branded
-builds no longer allow `--load-extension`, so the suite uses Playwright's bundled
-Chromium (Chrome for Testing); install it once with `npx playwright install chromium`.
-Set `BORG_SKIP_CLI=1` to skip the CLI-dependent grouping test in offline/fast CI.
-The fixture registers the native host automatically — no manual `install-host` step.
+Deterministic specs:
+- **health**: the panel reports the backend connected
+- **tab-panel**: search, filter, and bulk-close on open tabs (no AI); closing the selected tabs, then restoring them with undo
+- **duplicate-tabs**: spots a duplicate open tab, closes it on apply, restores it on undo
+- **sessions**: saves the current window as a session (closing its tabs), then restores them
+- **bookmark-cleanup**: spots a duplicate bookmark, deletes it on apply, restores it on undo
+- **dom-panel**: the real UI from end to end, covering *Clean bookmarks*, *Apply all*, the toast *Undo*, editing a proposed group (rename, drop a tab) followed by *Apply this group*, and the settings form persisting
+- **auto-apply**: `onInstalled` schedules the alarms; auto mode applies tab actions but never auto-deletes bookmarks
+
+CLI-backed specs (they use whichever backend is configured, which defaults to `claude`):
+- **grouping**: clusters tabs and checks that a real Chrome tab group forms
+- **command**: turns a natural-language instruction into an actionable plan
+- **stale-tabs**: seeds a long-idle tab and checks the backend proposes closing or suspending it
+
+Dead-link detection's HTTP logic has its own real-server integration test (`test/dead-link-integration.test.js`, part of `npm test`). The full in-browser dead-link flow isn't automated, because granting the optional `<all_urls>` permission needs a Chrome prompt that can't be accepted headlessly.
+
+To run the suite on Linux, WSL, or CI you need the default CLI (`claude`) on PATH plus `xvfb` for a virtual display; the `e2e` script wraps the run in `xvfb-run`. Google Chrome's branded builds dropped `--load-extension`, so the suite uses Playwright's bundled Chromium (Chrome for Testing); install it once with `npx playwright install chromium`. Set `BORG_SKIP_CLI=1` to skip the CLI-backed grouping test in offline or fast CI. The fixture registers the native host on its own, so there's no manual install-host step.
