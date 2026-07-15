@@ -72,7 +72,9 @@ jobs:
           # (WIX7015), which can't be accepted non-interactively in CI.
           dotnet tool install --global wix --version 5.0.2
           $env:PATH = "$env:USERPROFILE\.dotnet\tools;$env:PATH"
-          wix build installer\windows\browser-organizer.wxs -d Version=$ver -arch x64 -o dist\BrowserOrganizer.msi
+          wix extension add -g WixToolset.UI.wixext/5.0.2
+          wix build installer\windows\browser-organizer.wxs -d Version=$ver -arch x64 `
+            -ext WixToolset.UI.wixext -o dist\BrowserOrganizer.msi
 
       - name: Package installer (macOS)
         if: matrix.name == 'macos'

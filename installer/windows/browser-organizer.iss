@@ -29,10 +29,14 @@ AppName={#AppName}
 AppVersion={#AppVersion}
 AppPublisher=Lusk Technologies
 AppPublisherURL=https://lusk.tech
+AppSupportURL=https://lusk.dev/browser-organizer
+AppContact=hello@lusk.dev
+AppComments=Local helper that lets the Browser Organizer extension run your AI backend on this computer.
 ; Per-user install — no admin rights required.
 PrivilegesRequired=lowest
 DefaultDirName={localappdata}\BrowserOrganizer
-DisableDirPage=yes
+; Show the destination-folder page so users see where it installs (the helper
+; self-registers wherever it lands, so changing the location is safe).
 DisableProgramGroupPage=yes
 Uninstallable=yes
 OutputDir=..\..\dist
@@ -41,6 +45,11 @@ Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 ; Authenticode signing is applied by CI after compilation (signtool), not here.
+
+[Messages]
+; Explain what/why on the welcome page and what to do next on the finish page.
+WelcomeLabel2=Browser Organizer Host is a small local helper for the Browser Organizer extension in Chrome and Edge.%n%nThe extension cannot run AI features on its own. This helper runs the AI backend you choose (a local AI CLI or an OpenAI-compatible API) here on your computer and returns the results, so your tabs and bookmarks stay on this machine.%n%nIt installs for your account only (no administrator rights) and registers itself with Chrome and Edge.
+FinishedLabel=Browser Organizer Host is installed and registered with Chrome and Edge.%n%nTo finish: open the extension's side panel, click the reload icon, then choose your AI backend under Settings.
 
 [Files]
 Source: "..\..\dist\host\{#ExeName}"; DestDir: "{app}"; Flags: ignoreversion

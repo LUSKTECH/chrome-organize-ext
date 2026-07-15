@@ -25,7 +25,8 @@
   Requires elevation (per-machine); GPO/Intune/SCCM run it as SYSTEM. MajorUpgrade
   lets a newer MSI replace an older install in place.
 -->
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
   <Package
     Name="Browser Organizer Host"
     Manufacturer="Lusk Technologies"
@@ -36,6 +37,16 @@
 
     <MajorUpgrade DowngradeErrorMessage="A newer version of Browser Organizer Host is already installed." />
     <MediaTemplate EmbedCab="yes" />
+
+    <!-- Interactive wizard (welcome → license/overview → install folder → progress →
+         finish). Silent deploys (msiexec /qn) bypass all of this. -->
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+    <WixVariable Id="WixUILicenseRtf" Value="installer\windows\license.rtf" />
+
+    <!-- Add/Remove Programs metadata. -->
+    <Property Id="ARPCOMMENTS" Value="Local helper that lets the Browser Organizer extension run your AI backend on this computer." />
+    <Property Id="ARPCONTACT" Value="hello@lusk.dev" />
+    <Property Id="ARPURLINFOABOUT" Value="https://lusk.dev/browser-organizer" />
 
     <!-- Admin-overridable public properties (set on the msiexec command line). -->
     <Property Id="CHROME" Value="1" />
