@@ -61,6 +61,9 @@ Point the base URL at OpenAI, OpenRouter, Groq, Together, or a local server
 this path is **metered/pay-per-token**; a local endpoint keeps data on-device.
 
 ## Install (developer / unpacked)
+> Handing this to testers before the store release? See **[TESTING.md](TESTING.md)** — a
+> short, cross-platform (Windows/macOS/Linux) guide to loading the unpacked build.
+
 1. Load the extension:
    - Chrome: `chrome://extensions` → Developer mode → **Load unpacked** → select `extension/`
    - Edge: `edge://extensions` → Developer mode → **Load unpacked** → select `extension/`
@@ -69,7 +72,8 @@ this path is **metered/pay-per-token**; a local endpoint keeps data on-device.
    ```
    npx @lusktech/browser-organizer-host
    ```
-   or, from a clone, `node native-host/installer.js chrome,edge`. Either way the host is
+   or, from a clone, `node native-host/installer.js` (defaults to the pinned ID + Chrome/Edge).
+   Either way the host is
    copied into `~/.browser-organizer` (macOS/Linux) / `%LOCALAPPDATA%\BrowserOrganizer`
    (Windows), so the repo/bundle can be deleted afterward. Non-technical users can instead run
    the per-OS installer from the releases page (no Node required). See `INSTALL.md`.

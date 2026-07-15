@@ -69,8 +69,9 @@ per-user — don't mix them.)
 **C. From a cloned repo / self-host bundle (developers):**
 
 ```
-node native-host/installer.js [<EXTENSION_ID>] chrome,edge     # install (ID defaults to the pinned one)
-node native-host/installer.js uninstall chrome,edge            # remove
+node native-host/installer.js                                  # install (pinned ID + chrome,edge)
+node native-host/installer.js <EXTENSION_ID> chrome,edge       # or: explicit ID, then browsers
+node native-host/installer.js uninstall                        # remove
 ```
 
 The helper is copied to `~/.browser-organizer` (macOS/Linux) or
