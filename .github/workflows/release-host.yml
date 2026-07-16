@@ -121,7 +121,10 @@ jobs:
           WINDOWS_CERT_BASE64: ${{ secrets.WINDOWS_CERT_BASE64 }}
           WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
         run: |
-          if (-not $Env:WINDOWS_CERT_BASE64) { Write-Error "WINDOWS_CERT_BASE64 secret missing"; exit 1 }
+          if (-not $Env:WINDOWS_CERT_BASE64) {
+            Write-Host "::warning::WINDOWS_CERT_BASE64 not set — publishing the EXE/MSI unsigned (fine for alpha/pre-release builds)."
+            exit 0
+          }
           [IO.File]::WriteAllBytes("cert.pfx", [Convert]::FromBase64String($Env:WINDOWS_CERT_BASE64))
           foreach ($f in @("dist\BrowserOrganizerSetup.exe", "dist\BrowserOrganizer.msi")) {
             & signtool sign /fd sha256 /f cert.pfx /p $Env:WINDOWS_CERT_PASSWORD `
@@ -139,6 +142,10 @@ jobs:
           MACOS_NOTARY_API_ISSUER: ${{ secrets.MACOS_NOTARY_API_ISSUER }}
         run: |
           set -eu
+          if [ -z "${MACOS_SIGN_IDENTITY:-}" ]; then
+            echo "::warning::macOS signing secrets not set — publishing the .pkg unsigned/un-notarized (fine for alpha/pre-release builds)."
+            exit 0
+          fi
           codesign --force --options runtime --timestamp \
             --sign "$MACOS_SIGN_IDENTITY" dist/host/browser-organizer-host
           productsign --sign "$MACOS_SIGN_IDENTITY" dist/BrowserOrganizer.pkg dist/BrowserOrganizer-signed.pkg
