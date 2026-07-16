@@ -35,6 +35,7 @@
         <button type="button" data-feature="staleTabs" data-i18n="featStaleTabs">Find stale tabs</button>
         <button type="button" data-feature="importantBookmarks" data-i18n="featBookmarkImportant">Bookmark important</button>
         <button type="button" data-feature="cleanBookmarks" data-i18n="featCleanBookmarks">Clean bookmarks</button>
+        <button type="button" data-feature="organizeBookmarks" data-i18n="featOrganizeBookmarks">Sort bookmarks</button>
       </div>
     </div>
 
@@ -126,6 +127,19 @@
         <label><input type="checkbox" name="cleanBookmarks" /> Clean up stale/dead bookmarks</label>
         <label><input type="checkbox" name="dupeTabs" /> Detect duplicate open tabs</label>
         <label><input type="checkbox" name="deadLinkScan" /> Check bookmarked pages for dead links (requests access to all sites)</label>
+        <label><input type="checkbox" name="organizeBookmarks" /> Sort bookmarks into folders</label>
+        <label>Organizing method
+          <select name="organizeMode">
+            <option value="match">Match existing folders (no new folders)</option>
+            <option value="additive">Add folders &amp; sort loose bookmarks</option>
+            <option value="full">Fully reorganize (including filed bookmarks)</option>
+          </select>
+        </label>
+        <label><input type="checkbox" name="protectBookmarkBar" /> Never touch the Bookmarks Bar</label>
+        <label><input type="checkbox" name="removeEmptyFolders" /> Remove folders left empty after sorting</label>
+        <label>Never-touch folders (name or path, one per line)
+          <textarea name="protectedFolders" rows="2" placeholder="Work&#10;Other Bookmarks/Archive"></textarea>
+        </label>
         <label>Close tabs idle more than
           <input type="number" name="staleTabDays" min="1" max="365" /> days</label>
         <label>Bookmarks unvisited more than

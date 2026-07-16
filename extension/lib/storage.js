@@ -1,8 +1,12 @@
 export const DEFAULTS = {
   automationMode: 'review',            // 'review' | 'auto'
   enabledFeatures: {
-    staleTabs: true, groupTabs: true, importantBookmarks: true, cleanBookmarks: true, deadLinkScan: false, dupeTabs: true,
+    staleTabs: true, groupTabs: true, importantBookmarks: true, cleanBookmarks: true, deadLinkScan: false, dupeTabs: true, organizeBookmarks: false,
   },
+  organizeMode: 'additive',            // 'match' | 'additive' | 'full' (how aggressively to reorganize)
+  protectBookmarkBar: true,            // never move/remove anything in the Bookmarks Bar
+  protectedFolders: [],                // folder paths/names the organizer never touches (with their contents)
+  removeEmptyFolders: false,           // propose removing folders left empty after organizing
   staleTabDays: 14,                    // tabs idle longer are close candidates
   staleBookmarkDays: 180,             // bookmarks unvisited longer are cleanup candidates
   undoRetentionDays: 7,

@@ -10,6 +10,12 @@ test('getSettings returns defaults when nothing stored', async () => {
   assert.equal(s.automationMode, 'review');
   assert.equal(s.staleTabDays, DEFAULTS.staleTabDays);
   assert.equal(s.adapter, 'claude');
+  // organize feature defaults: off, additive, bar protected
+  assert.equal(s.enabledFeatures.organizeBookmarks, false);
+  assert.equal(s.organizeMode, 'additive');
+  assert.equal(s.protectBookmarkBar, true);
+  assert.deepEqual(s.protectedFolders, []);
+  assert.equal(s.removeEmptyFolders, false);
 });
 
 test('setSettings merges a patch over defaults', async () => {

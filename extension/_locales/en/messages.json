@@ -8,6 +8,7 @@
   "featStaleTabs": { "message": "Find stale tabs", "description": "Run only stale-tab detection." },
   "featBookmarkImportant": { "message": "Bookmark important", "description": "Run only important-bookmark detection." },
   "featCleanBookmarks": { "message": "Clean bookmarks", "description": "Run only bookmark cleanup." },
+  "featOrganizeBookmarks": { "message": "Sort bookmarks", "description": "Run only bookmark organizing (sort into folders)." },
   "clearList": { "message": "Clear list", "description": "Clear the suggestion list." },
   "groupByStatus": { "message": "Group bookmarks by status", "description": "Toggle: split the bookmark cleanup list into per-status sub-groups." },
   "openTabs": { "message": "Open tabs", "description": "Open-tabs panel heading." },

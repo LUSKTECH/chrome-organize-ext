@@ -416,7 +416,7 @@ $('run').addEventListener('click', () => startScan());
 $('cancelRun').addEventListener('click', () => send({ cmd: 'cancel' }));
 
 // Per-action run buttons: run just one feature without touching settings.
-const ALL_FEATURES = ['groupTabs', 'staleTabs', 'importantBookmarks', 'cleanBookmarks'];
+const ALL_FEATURES = ['groupTabs', 'staleTabs', 'importantBookmarks', 'cleanBookmarks', 'organizeBookmarks'];
 for (const btn of $('runOne').querySelectorAll('button[data-feature]')) {
   btn.addEventListener('click', () => {
     const only = btn.dataset.feature;
@@ -602,6 +602,11 @@ async function loadSettings() {
   form.cleanBookmarks.checked = s.enabledFeatures.cleanBookmarks;
   form.dupeTabs.checked = s.enabledFeatures.dupeTabs;
   form.deadLinkScan.checked = s.enabledFeatures.deadLinkScan;
+  form.organizeBookmarks.checked = s.enabledFeatures.organizeBookmarks;
+  form.organizeMode.value = s.organizeMode || 'additive';
+  form.protectBookmarkBar.checked = s.protectBookmarkBar !== false;
+  form.removeEmptyFolders.checked = !!s.removeEmptyFolders;
+  form.protectedFolders.value = (s.protectedFolders || []).join('\n');
   form.staleTabDays.value = s.staleTabDays;
   form.staleBookmarkDays.value = s.staleBookmarkDays;
   form.scanIntervalHours.value = Math.round(s.scanIntervalMinutes / 60);
@@ -631,7 +636,12 @@ $('settingsForm').addEventListener('submit', async (e) => {
       cleanBookmarks: form.cleanBookmarks.checked,
       dupeTabs: form.dupeTabs.checked,
       deadLinkScan: form.deadLinkScan.checked,
+      organizeBookmarks: form.organizeBookmarks.checked,
     },
+    organizeMode: form.organizeMode.value,
+    protectBookmarkBar: form.protectBookmarkBar.checked,
+    removeEmptyFolders: form.removeEmptyFolders.checked,
+    protectedFolders: form.protectedFolders.value.split('\n').map((s) => s.trim()).filter(Boolean),
     staleTabDays: Number(form.staleTabDays.value),
     staleBookmarkDays: Number(form.staleBookmarkDays.value),
     scanIntervalMinutes: Math.max(1, Number(form.scanIntervalHours.value)) * 60,
