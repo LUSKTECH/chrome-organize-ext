@@ -1,5 +1,5 @@
 import { collectTabs } from './tab-collector.js';
-import { collectBookmarks } from './bookmark-collector.js';
+import { collectBookmarks, ROOT_IDS } from './bookmark-collector.js';
 import { reconcile } from './activity-tracker.js';
 import { indexById, mapGroupResult, mapStaleResult, mapImportantResult, validatePlanItem } from './plan.js';
 import { findDuplicateBookmarks, findStaleBookmarks, getVisitsMap, checkDeadLinks, recordDeadStrikes, dedupeDeletes } from './bookmark-health.js';
@@ -191,12 +191,22 @@ export function applyFolderProtection(items, opts = {}) {
     if (!ORGANIZE.has(it.action)) return true;
     const d = it.data || {};
     if (it.action === 'removeFolder') {
-      if (['0', '1', '2', '3'].includes(d.folderId)) return false;
+      if (ROOT_IDS.has(d.folderId)) return false;
       return !blocked(d.folderId);
     }
+    // moveBookmark
     if (blocked(d.fromParentId)) return false;
-    if (d.toParentId && blocked(d.toParentId)) return false;
-    if (d.toFolderPath && pathProtected(d.toFolderPath)) return false;
+    if (d.toParentId) {
+      if (blocked(d.toParentId)) return false;
+    } else {
+      // New-folder target: evaluate the *projected* destination path, so a
+      // toRootId of the bar or a toFolderPath under a protected subtree can't
+      // slip past the protections (the executor creates under toRootId||'2').
+      const rootId = d.toRootId || '2';
+      if (protectBookmarkBar && inBar(rootId)) return false;
+      const rootPath = byId.get(rootId)?.path || [];
+      if (pathProtected([...rootPath, ...(d.toFolderPath || [])])) return false;
+    }
     return true;
   });
 }

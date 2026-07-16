@@ -1,6 +1,7 @@
 import { TAB_GROUP_COLORS } from './colors.js';
 import { ACTION_LABELS } from './labels.js';
 import { uniqueId as undoId } from './ids.js';
+import { ROOT_IDS } from './bookmark-collector.js';
 
 const COLORS = new Set(TAB_GROUP_COLORS);
 
@@ -67,17 +68,22 @@ async function applyItemInner(item, c) {
     }
     case 'moveBookmark': {
       const { bookmarkId, fromParentId, fromIndex, toParentId, toFolderPath, toRootId } = item.data;
+      // Capture the live origin so undo restores correctly even if the plan's
+      // fromParentId/fromIndex are stale or missing.
+      const cur = await c.bookmarks.get(bookmarkId).then((r) => r && r[0]).catch(() => null) || {};
       const parentId = toParentId || (await ensureFolder(toFolderPath || [], c, toRootId || '2')).id;
       await c.bookmarks.move(bookmarkId, { parentId });
-      return { undoId: undoId(), ts: Date.now(), action: 'moveBookmark', reverse: { bookmarkId, parentId: fromParentId, index: fromIndex } };
+      return { undoId: undoId(), ts: Date.now(), action: 'moveBookmark', reverse: { bookmarkId, parentId: fromParentId ?? cur.parentId, index: fromIndex ?? cur.index } };
     }
     case 'removeFolder': {
       const { folderId, parentId, index, title } = item.data;
       // Guards (independent of the planner): never touch a root, never remove a
       // folder that still has children at apply time (keeps partial-apply safe).
-      if (['0', '1', '2', '3'].includes(folderId)) return { undoId: undoId(), ts: Date.now(), action: 'removeFolder', reverse: null, skipped: true };
-      const kids = await c.bookmarks.getChildren(folderId);
-      if (kids.length) return { undoId: undoId(), ts: Date.now(), action: 'removeFolder', reverse: null, skipped: true };
+      if (ROOT_IDS.has(folderId)) return { undoId: undoId(), ts: Date.now(), action: 'removeFolder', reverse: null, skipped: true };
+      // The folder may already be gone (user deleted it before apply) — treat a
+      // failed lookup as a skip so the batch keeps going.
+      const kids = await c.bookmarks.getChildren(folderId).catch(() => null);
+      if (!kids || kids.length) return { undoId: undoId(), ts: Date.now(), action: 'removeFolder', reverse: null, skipped: true };
       await c.bookmarks.remove(folderId);
       return { undoId: undoId(), ts: Date.now(), action: 'removeFolder', reverse: { parentId, index, title } };
     }

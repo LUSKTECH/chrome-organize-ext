@@ -30,6 +30,7 @@ function makeChrome() {
         return created2;
       },
       async remove(id) { removed.push(`bm:${id}`); },
+      async get(id) { return [{ id }]; },
       async move(id, dest) { moved.push({ id, dest }); return { id, ...dest }; },
     },
   };

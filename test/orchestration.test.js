@@ -23,6 +23,20 @@ test('applyFolderProtection drops moves/removes touching the bar or whitelisted 
   assert.deepEqual(out.map((i) => i.data.bookmarkId || i.data.folderId || 'tab'), ['c', '20', 'tab']);
 });
 
+test('applyFolderProtection blocks new-folder moves into the bar or a protected path (projected)', () => {
+  const folders = [
+    { id: '1', parentId: '0', path: ['Bookmarks Bar'], isRoot: true },
+    { id: '2', parentId: '0', path: ['Other Bookmarks'], isRoot: true },
+  ];
+  const items = [
+    { action: 'moveBookmark', data: { bookmarkId: 'a', fromParentId: '2', toRootId: '1', toFolderPath: ['X'] } },      // into bar via root -> drop
+    { action: 'moveBookmark', data: { bookmarkId: 'b', fromParentId: '2', toRootId: '2', toFolderPath: ['Work'] } },   // projected Other/Work protected -> drop
+    { action: 'moveBookmark', data: { bookmarkId: 'c', fromParentId: '2', toRootId: '2', toFolderPath: ['Reading'] } },// ok
+  ];
+  const out = applyFolderProtection(items, { protectBookmarkBar: true, protectedFolders: ['Work'], folders });
+  assert.deepEqual(out.map((i) => i.data.bookmarkId), ['c']);
+});
+
 test('applyFolderProtection allows moving out of the bar when protection is off', () => {
   const folders = [{ id: '1', parentId: '0', path: ['Bookmarks Bar'], isRoot: true }, { id: '20', parentId: '2', path: ['Other Bookmarks', 'Misc'] }];
   const out = applyFolderProtection(
