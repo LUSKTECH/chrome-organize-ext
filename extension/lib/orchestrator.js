@@ -1,5 +1,5 @@
 import { collectTabs } from './tab-collector.js';
-import { collectBookmarks } from './bookmark-collector.js';
+import { collectBookmarks, ROOT_IDS } from './bookmark-collector.js';
 import { reconcile } from './activity-tracker.js';
 import { indexById, mapGroupResult, mapStaleResult, mapImportantResult, validatePlanItem } from './plan.js';
 import { findDuplicateBookmarks, findStaleBookmarks, getVisitsMap, checkDeadLinks, recordDeadStrikes, dedupeDeletes } from './bookmark-health.js';
@@ -8,10 +8,13 @@ import { applyItem as defaultApplyItem } from './executor.js';
 import { recordUndo as defaultRecordUndo } from './undo-log.js';
 import { redactUrl, isPrivateHost } from './url-utils.js';
 
+// High-impact/destructive actions are never auto-applied — they always wait for
+// explicit review, even in auto mode.
+const REVIEW_ONLY = new Set(['deleteBookmark', 'moveBookmark', 'removeFolder']);
 export function partitionForApply(items, settings) {
   if (settings.automationMode !== 'auto') return { autoApply: [], needsReview: items };
-  const autoApply = items.filter((i) => i.action !== 'deleteBookmark');
-  const needsReview = items.filter((i) => i.action === 'deleteBookmark');
+  const autoApply = items.filter((i) => !REVIEW_ONLY.has(i.action));
+  const needsReview = items.filter((i) => REVIEW_ONLY.has(i.action));
   return { autoApply, needsReview };
 }
 
@@ -148,9 +151,70 @@ export function applyWhitelist(items, whitelist = []) {
   return items.filter((it) => !(PROTECTED.has(it.action) && matches(hostOf(it.data && it.data.url))));
 }
 
-export function finalizePlan(items, settings) {
+// Enforces the categorize protections deterministically, regardless of what the
+// model proposed: never move out of / into the Bookmarks Bar (when protected),
+// never touch a whitelisted folder's subtree, never remove a root. Only the
+// organize actions are affected; `folders` is the inventory from collectTree.
+export function applyFolderProtection(items, opts = {}) {
+  const { protectBookmarkBar = true, protectedFolders = [], folders = [] } = opts;
+  const ORGANIZE = new Set(['moveBookmark', 'removeFolder']);
+  if (!items.some((it) => ORGANIZE.has(it.action))) return items;
+  const byId = new Map(folders.map((f) => [f.id, f]));
+  const entries = protectedFolders
+    .map((p) => String(p).toLowerCase().split('/').map((s) => s.trim()).filter(Boolean))
+    .filter((segs) => segs.length);
+  const pathProtected = (pathArr) => {
+    if (!pathArr || !entries.length) return false;
+    const low = pathArr.map((s) => String(s).toLowerCase());
+    return entries.some((segs) => {
+      for (let i = 0; i + segs.length <= low.length; i++) {
+        if (segs.every((s, k) => low[i + k] === s)) return true;
+      }
+      return false;
+    });
+  };
+  const inBar = (id) => {
+    let cur = id, guard = 0;
+    while (cur && guard++ < 100) {
+      if (cur === '1') return true;
+      cur = byId.get(cur)?.parentId ?? null;
+    }
+    return false;
+  };
+  const blocked = (id) => {
+    if (!id) return false;
+    if (protectBookmarkBar && inBar(id)) return true;
+    const f = byId.get(id);
+    return f ? pathProtected(f.path) : false;
+  };
+  return items.filter((it) => {
+    if (!ORGANIZE.has(it.action)) return true;
+    const d = it.data || {};
+    if (it.action === 'removeFolder') {
+      if (ROOT_IDS.has(d.folderId)) return false;
+      return !blocked(d.folderId);
+    }
+    // moveBookmark
+    if (blocked(d.fromParentId)) return false;
+    if (d.toParentId) {
+      if (blocked(d.toParentId)) return false;
+    } else {
+      // New-folder target: evaluate the *projected* destination path, so a
+      // toRootId of the bar or a toFolderPath under a protected subtree can't
+      // slip past the protections (the executor creates under toRootId||'2').
+      const rootId = d.toRootId || '2';
+      if (protectBookmarkBar && inBar(rootId)) return false;
+      const rootPath = byId.get(rootId)?.path || [];
+      if (pathProtected([...rootPath, ...(d.toFolderPath || [])])) return false;
+    }
+    return true;
+  });
+}
+
+export function finalizePlan(items, settings, folders = []) {
   const s = settings || {};
-  const cleaned = applyWhitelist(dedupeTabActions(items).filter(validatePlanItem), s.whitelist || []);
+  let cleaned = applyWhitelist(dedupeTabActions(items).filter(validatePlanItem), s.whitelist || []);
+  cleaned = applyFolderProtection(cleaned, { protectBookmarkBar: s.protectBookmarkBar !== false, protectedFolders: s.protectedFolders || [], folders });
   return applyIgnoreList(cleaned, s.ignore || []);
 }
 

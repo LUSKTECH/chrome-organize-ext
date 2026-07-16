@@ -78,3 +78,20 @@ test('reverseEntry handles discardTab as a no-op', async () => {
   await reverseEntry({ action: 'discardTab', reverse: {} }, {}); // must not throw
   assert.ok(true);
 });
+
+test('reverseEntry moveBookmark moves back; removeFolder recreates (and no-ops on skip)', async () => {
+  const calls = [];
+  const chrome = {
+    bookmarks: {
+      async move(id, dest) { calls.push(['move', id, dest]); },
+      async create(x) { calls.push(['create', x]); },
+    },
+  };
+  await reverseEntry({ action: 'moveBookmark', reverse: { bookmarkId: '9', parentId: '2', index: 3 } }, chrome);
+  await reverseEntry({ action: 'removeFolder', reverse: { parentId: '2', index: 0, title: 'Empty' } }, chrome);
+  await reverseEntry({ action: 'removeFolder', reverse: null }, chrome); // skipped removal → nothing
+  assert.deepEqual(calls, [
+    ['move', '9', { parentId: '2', index: 3 }],
+    ['create', { parentId: '2', index: 0, title: 'Empty' }],
+  ]);
+});

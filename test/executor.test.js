@@ -5,11 +5,13 @@ import { applyItem, ensureFolder } from '../extension/lib/executor.js';
 function makeChrome() {
   const removed = [];
   const created = [];
+  const moved = [];
   let nextBmId = 100;
   const folders = { '1': [] }; // bookmarks-bar children
   return {
     _removed: removed,
     _created: created,
+    _moved: moved,
     tabs: {
       async get(id) { return { id, url: 'https://a.com' }; },
       async remove(id) { removed.push(id); },
@@ -28,9 +30,53 @@ function makeChrome() {
         return created2;
       },
       async remove(id) { removed.push(`bm:${id}`); },
+      async get(id) { return [{ id }]; },
+      async move(id, dest) { moved.push({ id, dest }); return { id, ...dest }; },
     },
   };
 }
+
+test('moveBookmark moves to an existing target and reverses to origin', async () => {
+  const chrome = makeChrome();
+  const item = { action: 'moveBookmark', data: { bookmarkId: '9', fromParentId: '2', fromIndex: 3, toParentId: '10', title: 't', url: 'https://x.com' } };
+  const entry = await applyItem(item, { chrome });
+  assert.deepEqual(chrome._moved.at(-1), { id: '9', dest: { parentId: '10' } });
+  assert.equal(entry.action, 'moveBookmark');
+  assert.deepEqual(entry.reverse, { bookmarkId: '9', parentId: '2', index: 3 });
+});
+
+test('moveBookmark creates the target folder from toFolderPath under the given root', async () => {
+  const chrome = makeChrome();
+  const item = { action: 'moveBookmark', data: { bookmarkId: '9', fromParentId: '1', fromIndex: 0, toFolderPath: ['Work'], toRootId: '2', title: 't', url: 'https://x.com' } };
+  await applyItem(item, { chrome });
+  assert.ok(chrome._created.some((c) => c.title === 'Work' && c.parentId === '2'));
+  assert.equal(chrome._moved.at(-1).id, '9');
+});
+
+test('removeFolder removes an empty non-root folder and reverses by recreating it', async () => {
+  const chrome = makeChrome();
+  const f = await chrome.bookmarks.create({ parentId: '2', title: 'Empty' }); // folders[f.id] = []
+  const item = { action: 'removeFolder', data: { folderId: f.id, parentId: '2', index: 0, title: 'Empty' } };
+  const entry = await applyItem(item, { chrome });
+  assert.ok(chrome._removed.includes(`bm:${f.id}`));
+  assert.deepEqual(entry.reverse, { parentId: '2', index: 0, title: 'Empty' });
+});
+
+test('removeFolder refuses a root folder (no-op, skipped)', async () => {
+  const chrome = makeChrome();
+  const entry = await applyItem({ action: 'removeFolder', data: { folderId: '1', parentId: '0', index: 0, title: 'Bar' } }, { chrome });
+  assert.equal(entry.skipped, true);
+  assert.ok(!chrome._removed.includes('bm:1'));
+});
+
+test('removeFolder refuses a non-empty folder (no-op, skipped)', async () => {
+  const chrome = makeChrome();
+  const f = await chrome.bookmarks.create({ parentId: '2', title: 'Full' });
+  await chrome.bookmarks.create({ parentId: f.id, title: 'child', url: 'https://c.com' });
+  const entry = await applyItem({ action: 'removeFolder', data: { folderId: f.id, parentId: '2', index: 0, title: 'Full' } }, { chrome });
+  assert.equal(entry.skipped, true);
+  assert.ok(!chrome._removed.includes(`bm:${f.id}`));
+});
 
 test('closeTab removes the tab and returns a reopen undo entry', async () => {
   const chrome = makeChrome();

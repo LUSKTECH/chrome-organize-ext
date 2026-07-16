@@ -69,6 +69,13 @@ export async function reverseEntry(entry, chromeApi = chrome) {
       await chromeApi.bookmarks.create({ parentId, index, title, url });
       return;
     }
+    case 'moveBookmark':
+      await chromeApi.bookmarks.move(entry.reverse.bookmarkId, { parentId: entry.reverse.parentId, index: entry.reverse.index });
+      return;
+    case 'removeFolder':
+      // reverse null means the removal was skipped (root/non-empty) → nothing to undo.
+      if (entry.reverse) await chromeApi.bookmarks.create({ parentId: entry.reverse.parentId, index: entry.reverse.index, title: entry.reverse.title });
+      return;
     case 'discardTab':
       return; // discard is transparent; the tab reloads on next focus
     default:

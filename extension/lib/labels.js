@@ -6,6 +6,8 @@ export const ACTION_LABELS = {
   createBookmark: 'Bookmark tab',
   deleteBookmark: 'Delete bookmark',
   discardTab: 'Suspend tab',
+  moveBookmark: 'Move bookmark',
+  removeFolder: 'Remove empty folder',
 };
 
 // Human labels for the bookmark-cleanup status buckets (see viewmodel.statusBucket).

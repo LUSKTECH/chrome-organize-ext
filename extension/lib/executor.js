@@ -1,6 +1,7 @@
 import { TAB_GROUP_COLORS } from './colors.js';
 import { ACTION_LABELS } from './labels.js';
 import { uniqueId as undoId } from './ids.js';
+import { ROOT_IDS } from './bookmark-collector.js';
 
 const COLORS = new Set(TAB_GROUP_COLORS);
 
@@ -11,9 +12,10 @@ function labelFor(item) {
   return `${ACTION_LABELS[item.action] || item.action}: ${name}`.trim();
 }
 
-// Walk/create a folder path under the bookmarks bar (id '1'); returns the leaf folder id.
-export async function ensureFolder(pathParts, chromeApi) {
-  let parentId = '1';
+// Walk/create a folder path under `rootId` (default the bookmarks bar '1');
+// returns the leaf folder id.
+export async function ensureFolder(pathParts, chromeApi, rootId = '1') {
+  let parentId = rootId;
   for (const name of pathParts) {
     const children = await chromeApi.bookmarks.getChildren(parentId);
     let node = children.find((ch) => !ch.url && ch.title === name);
@@ -63,6 +65,27 @@ async function applyItemInner(item, c) {
       const { bookmarkId, parentId, index, title, url } = item.data;
       await c.bookmarks.remove(bookmarkId);
       return { undoId: undoId(), ts: Date.now(), action: 'deleteBookmark', reverse: { parentId, index, title, url } };
+    }
+    case 'moveBookmark': {
+      const { bookmarkId, fromParentId, fromIndex, toParentId, toFolderPath, toRootId } = item.data;
+      // Capture the live origin so undo restores correctly even if the plan's
+      // fromParentId/fromIndex are stale or missing.
+      const cur = await c.bookmarks.get(bookmarkId).then((r) => r && r[0]).catch(() => null) || {};
+      const parentId = toParentId || (await ensureFolder(toFolderPath || [], c, toRootId || '2')).id;
+      await c.bookmarks.move(bookmarkId, { parentId });
+      return { undoId: undoId(), ts: Date.now(), action: 'moveBookmark', reverse: { bookmarkId, parentId: fromParentId ?? cur.parentId, index: fromIndex ?? cur.index } };
+    }
+    case 'removeFolder': {
+      const { folderId, parentId, index, title } = item.data;
+      // Guards (independent of the planner): never touch a root, never remove a
+      // folder that still has children at apply time (keeps partial-apply safe).
+      if (ROOT_IDS.has(folderId)) return { undoId: undoId(), ts: Date.now(), action: 'removeFolder', reverse: null, skipped: true };
+      // The folder may already be gone (user deleted it before apply) — treat a
+      // failed lookup as a skip so the batch keeps going.
+      const kids = await c.bookmarks.getChildren(folderId).catch(() => null);
+      if (!kids || kids.length) return { undoId: undoId(), ts: Date.now(), action: 'removeFolder', reverse: null, skipped: true };
+      await c.bookmarks.remove(folderId);
+      return { undoId: undoId(), ts: Date.now(), action: 'removeFolder', reverse: { parentId, index, title } };
     }
     case 'discardTab': {
       await c.tabs.discard(item.data.tabId);

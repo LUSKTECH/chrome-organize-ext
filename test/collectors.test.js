@@ -1,7 +1,29 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { toSnapshot, collectTabs } from '../extension/lib/tab-collector.js';
-import { flattenBookmarks, collectBookmarks } from '../extension/lib/bookmark-collector.js';
+import { flattenBookmarks, collectBookmarks, collectTree, isUnfiled, ROOT_IDS } from '../extension/lib/bookmark-collector.js';
+
+test('collectTree returns folders with path, childCount, and root flags', async () => {
+  const chromeApi = { bookmarks: { async getTree() { return [{ id: '0', children: [
+    { id: '1', title: 'Bookmarks Bar', parentId: '0', index: 0, children: [
+      { id: '10', title: 'Dev', parentId: '1', index: 0, children: [
+        { id: '100', title: 'MDN', url: 'https://mdn.dev', parentId: '10', index: 0 },
+      ] },
+      { id: '11', title: 'Loose', url: 'https://x.com', parentId: '1', index: 1 },
+    ] },
+    { id: '2', title: 'Other Bookmarks', parentId: '0', index: 1, children: [] },
+  ] }]; } } };
+  const { bookmarks, folders } = await collectTree(chromeApi);
+  const dev = folders.find((f) => f.id === '10');
+  assert.deepEqual(dev.path, ['Bookmarks Bar', 'Dev']);
+  assert.equal(dev.childCount, 1);
+  assert.equal(folders.find((f) => f.id === '1').isRoot, true);
+  assert.equal(folders.some((f) => f.id === '0'), false); // root '0' not emitted
+  assert.equal(bookmarks.find((b) => b.id === '11').parentId, '1');
+  assert.equal(isUnfiled({ parentId: '1' }), true);
+  assert.equal(isUnfiled({ parentId: '10' }), false);
+  assert.ok(ROOT_IDS.has('2'));
+});
 
 const DAY = 86400000;
 

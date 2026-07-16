@@ -2,7 +2,60 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { partitionForApply, applyItems, buildPlan, sliceForScan, projectTabsForHost, ignoreKey, applyIgnoreList, recordDecision, decisionRules } from '../extension/lib/orchestrator.js';
 
-import { dedupeTabActions, finalizePlan, applyWhitelist, runCommand } from '../extension/lib/orchestrator.js';
+import { dedupeTabActions, finalizePlan, applyWhitelist, runCommand, applyFolderProtection } from '../extension/lib/orchestrator.js';
+import { validatePlanItem } from '../extension/lib/plan.js';
+
+test('applyFolderProtection drops moves/removes touching the bar or whitelisted folders', () => {
+  const folders = [
+    { id: '1', parentId: '0', path: ['Bookmarks Bar'], isRoot: true },
+    { id: '10', parentId: '2', path: ['Other Bookmarks', 'Work'] },
+    { id: '20', parentId: '2', path: ['Other Bookmarks', 'Misc'] },
+  ];
+  const items = [
+    { action: 'moveBookmark', data: { bookmarkId: 'a', fromParentId: '1', toParentId: '20' } }, // out of bar -> drop
+    { action: 'moveBookmark', data: { bookmarkId: 'b', fromParentId: '2', toParentId: '10' } }, // into Work (protected) -> drop
+    { action: 'moveBookmark', data: { bookmarkId: 'c', fromParentId: '2', toParentId: '20' } }, // allowed
+    { action: 'removeFolder', data: { folderId: '10', parentId: '2', title: 'Work' } },          // protected -> drop
+    { action: 'removeFolder', data: { folderId: '20', parentId: '2', title: 'Misc' } },          // allowed
+    { action: 'closeTab', data: { url: 'https://x.com' } },                                      // untouched
+  ];
+  const out = applyFolderProtection(items, { protectBookmarkBar: true, protectedFolders: ['Work'], folders });
+  assert.deepEqual(out.map((i) => i.data.bookmarkId || i.data.folderId || 'tab'), ['c', '20', 'tab']);
+});
+
+test('applyFolderProtection blocks new-folder moves into the bar or a protected path (projected)', () => {
+  const folders = [
+    { id: '1', parentId: '0', path: ['Bookmarks Bar'], isRoot: true },
+    { id: '2', parentId: '0', path: ['Other Bookmarks'], isRoot: true },
+  ];
+  const items = [
+    { action: 'moveBookmark', data: { bookmarkId: 'a', fromParentId: '2', toRootId: '1', toFolderPath: ['X'] } },      // into bar via root -> drop
+    { action: 'moveBookmark', data: { bookmarkId: 'b', fromParentId: '2', toRootId: '2', toFolderPath: ['Work'] } },   // projected Other/Work protected -> drop
+    { action: 'moveBookmark', data: { bookmarkId: 'c', fromParentId: '2', toRootId: '2', toFolderPath: ['Reading'] } },// ok
+  ];
+  const out = applyFolderProtection(items, { protectBookmarkBar: true, protectedFolders: ['Work'], folders });
+  assert.deepEqual(out.map((i) => i.data.bookmarkId), ['c']);
+});
+
+test('applyFolderProtection allows moving out of the bar when protection is off', () => {
+  const folders = [{ id: '1', parentId: '0', path: ['Bookmarks Bar'], isRoot: true }, { id: '20', parentId: '2', path: ['Other Bookmarks', 'Misc'] }];
+  const out = applyFolderProtection(
+    [{ action: 'moveBookmark', data: { bookmarkId: 'a', fromParentId: '1', toParentId: '20' } }],
+    { protectBookmarkBar: false, protectedFolders: [], folders },
+  );
+  assert.equal(out.length, 1);
+});
+
+test('organize actions validate and are review-only in auto mode', () => {
+  assert.equal(validatePlanItem({ itemId: 'm', action: 'moveBookmark', status: 'pending', data: {} }), true);
+  assert.equal(validatePlanItem({ itemId: 'r', action: 'removeFolder', status: 'pending', data: {} }), true);
+  const { autoApply, needsReview } = partitionForApply(
+    [{ action: 'moveBookmark', data: {} }, { action: 'removeFolder', data: {} }, { action: 'closeTab', data: {} }],
+    { automationMode: 'auto' },
+  );
+  assert.deepEqual(autoApply.map((i) => i.action), ['closeTab']);
+  assert.equal(needsReview.length, 2);
+});
 
 test('runCommand applies whitelist + ignore-list via finalizePlan (safety controls hold on the command path)', async () => {
   const chromeApi = {

@@ -1,4 +1,4 @@
-const ACTIONS = new Set(['closeTab', 'groupTabs', 'createBookmark', 'deleteBookmark', 'discardTab']);
+const ACTIONS = new Set(['closeTab', 'groupTabs', 'createBookmark', 'deleteBookmark', 'discardTab', 'moveBookmark', 'removeFolder']);
 
 export function indexById(snapshots) {
   return new Map(snapshots.map((s) => [s.tabId, s]));
