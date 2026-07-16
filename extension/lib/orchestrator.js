@@ -151,9 +151,60 @@ export function applyWhitelist(items, whitelist = []) {
   return items.filter((it) => !(PROTECTED.has(it.action) && matches(hostOf(it.data && it.data.url))));
 }
 
-export function finalizePlan(items, settings) {
+// Enforces the categorize protections deterministically, regardless of what the
+// model proposed: never move out of / into the Bookmarks Bar (when protected),
+// never touch a whitelisted folder's subtree, never remove a root. Only the
+// organize actions are affected; `folders` is the inventory from collectTree.
+export function applyFolderProtection(items, opts = {}) {
+  const { protectBookmarkBar = true, protectedFolders = [], folders = [] } = opts;
+  const ORGANIZE = new Set(['moveBookmark', 'removeFolder']);
+  if (!items.some((it) => ORGANIZE.has(it.action))) return items;
+  const byId = new Map(folders.map((f) => [f.id, f]));
+  const entries = protectedFolders
+    .map((p) => String(p).toLowerCase().split('/').map((s) => s.trim()).filter(Boolean))
+    .filter((segs) => segs.length);
+  const pathProtected = (pathArr) => {
+    if (!pathArr || !entries.length) return false;
+    const low = pathArr.map((s) => String(s).toLowerCase());
+    return entries.some((segs) => {
+      for (let i = 0; i + segs.length <= low.length; i++) {
+        if (segs.every((s, k) => low[i + k] === s)) return true;
+      }
+      return false;
+    });
+  };
+  const inBar = (id) => {
+    let cur = id, guard = 0;
+    while (cur && guard++ < 100) {
+      if (cur === '1') return true;
+      cur = byId.get(cur)?.parentId ?? null;
+    }
+    return false;
+  };
+  const blocked = (id) => {
+    if (!id) return false;
+    if (protectBookmarkBar && inBar(id)) return true;
+    const f = byId.get(id);
+    return f ? pathProtected(f.path) : false;
+  };
+  return items.filter((it) => {
+    if (!ORGANIZE.has(it.action)) return true;
+    const d = it.data || {};
+    if (it.action === 'removeFolder') {
+      if (['0', '1', '2', '3'].includes(d.folderId)) return false;
+      return !blocked(d.folderId);
+    }
+    if (blocked(d.fromParentId)) return false;
+    if (d.toParentId && blocked(d.toParentId)) return false;
+    if (d.toFolderPath && pathProtected(d.toFolderPath)) return false;
+    return true;
+  });
+}
+
+export function finalizePlan(items, settings, folders = []) {
   const s = settings || {};
-  const cleaned = applyWhitelist(dedupeTabActions(items).filter(validatePlanItem), s.whitelist || []);
+  let cleaned = applyWhitelist(dedupeTabActions(items).filter(validatePlanItem), s.whitelist || []);
+  cleaned = applyFolderProtection(cleaned, { protectBookmarkBar: s.protectBookmarkBar !== false, protectedFolders: s.protectedFolders || [], folders });
   return applyIgnoreList(cleaned, s.ignore || []);
 }
 
