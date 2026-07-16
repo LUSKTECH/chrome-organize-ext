@@ -205,6 +205,16 @@ input[type="checkbox"] { accent-color: var(--accent); width: 15px; height: 15px;
   font-variant-numeric: tabular-nums;
 }
 .group ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.subgroup { margin: 0 0 10px; }
+.subgroup h3 {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+  margin: 0 0 5px 2px;
+  font-variant-numeric: tabular-nums;
+}
 ul { margin: 0; padding: 0; }
 
 .item {
@@ -429,6 +439,7 @@ kbd { font-family: var(--mono); font-size: 10px; background: var(--surface-2); b
 .planTools[hidden] { display: none; } /* author display:flex would otherwise override the hidden attr */
 .planTools input[type="search"] { flex: 1 1 140px; min-width: 120px; }
 .planTools button { padding: 4px 10px; font-size: 11px; }
+.planTool-toggle { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-muted); }
 
 /* ---------- Click-to-focus affordances ---------- */
 .focusable { cursor: pointer; color: var(--link); text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 2px; }

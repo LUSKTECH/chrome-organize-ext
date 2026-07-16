@@ -1,12 +1,18 @@
 import { normalizeUrl, isHttpUrl, isPrivateHost } from './url-utils.js';
 
-export function deleteItem(b, reason) {
+// `opts.category` ('duplicate' | 'stale' | 'dead' | 'other') and `opts.httpStatus`
+// (numeric, dead links only) let the panel group cleanup proposals by reason/status.
+export function deleteItem(b, reason, opts = {}) {
+  const { category = 'other', httpStatus } = opts || {};
+  const data = { bookmarkId: b.id, parentId: b.parentId, index: b.index, title: b.title, url: b.url };
+  if (httpStatus != null) data.httpStatus = httpStatus;
   return {
     itemId: `del-${b.id}`,
     action: 'deleteBookmark',
     status: 'pending',
     reason,
-    data: { bookmarkId: b.id, parentId: b.parentId, index: b.index, title: b.title, url: b.url },
+    category,
+    data,
   };
 }
 
@@ -16,7 +22,7 @@ export function findDuplicateBookmarks(bookmarks) {
   for (const b of bookmarks) {
     if (!b.url) continue;
     const key = normalizeUrl(b.url);
-    if (seen.has(key)) items.push(deleteItem(b, `Duplicate of "${seen.get(key).title || seen.get(key).url}"`));
+    if (seen.has(key)) items.push(deleteItem(b, `Duplicate of "${seen.get(key).title || seen.get(key).url}"`, { category: 'duplicate' }));
     else seen.set(key, b);
   }
   return items;
@@ -27,7 +33,7 @@ export function findStaleBookmarks(bookmarks, visitsMap, thresholdDays, now) {
   return bookmarks
     .filter((b) => b.url)
     .filter((b) => (visitsMap.get(normalizeUrl(b.url)) ?? b.dateAdded ?? 0) < cutoff)
-    .map((b) => deleteItem(b, `Not visited in ${thresholdDays}+ days`));
+    .map((b) => deleteItem(b, `Not visited in ${thresholdDays}+ days`, { category: 'stale' }));
 }
 
 export async function getVisitsMap(bookmarks, chromeApi = chrome) {
@@ -46,7 +52,10 @@ export async function getVisitsMap(bookmarks, chromeApi = chrome) {
   return map;
 }
 
-async function isDead(url, fetchFn, timeoutMs) {
+// Returns the numeric HTTP status, or 0 for an unreachable host (connection/DNS
+// error), or -1 for a timeout. Redirects are NOT followed (redirect: 'manual'),
+// so the status reflects the bookmark's own URL.
+async function probeStatus(url, fetchFn, timeoutMs) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -54,14 +63,26 @@ async function isDead(url, fetchFn, timeoutMs) {
     if (res.status === 405 || res.status === 501) {
       res = await fetchFn(url, { method: 'GET', redirect: 'manual', signal: controller.signal });
     }
-    if (res.status === 404 || res.status === 410) return `HTTP ${res.status}`;
-    return null; // 2xx, 3xx, 401/403, 5xx all treated as alive (conservative)
+    // Under redirect:'manual' the browser returns an opaque-redirect response
+    // (type 'opaqueredirect', status 0). That's a live redirect, not a dead host,
+    // so report it as a redirect (302) rather than letting status 0 read as unreachable.
+    if (res.type === 'opaqueredirect') return 302;
+    return res.status;
   } catch (err) {
-    if (err && err.name === 'AbortError') return null; // timeout != dead (conservative)
-    return 'unreachable';
+    if (err && err.name === 'AbortError') return -1; // timeout
+    return 0; // unreachable
   } finally {
     clearTimeout(timer);
   }
+}
+
+// Maps a probed status to a dead-link reason, or null if the link is alive.
+// Dead = a definitive 404/410, or an unreachable host (0). Timeouts (-1) and
+// everything else (2xx/3xx/401/403/5xx) are treated as alive (conservative).
+function deadReason(status) {
+  if (status === 404 || status === 410) return `HTTP ${status}`;
+  if (status === 0) return 'unreachable';
+  return null;
 }
 
 // Increment a strike for each currently-dead id; clear strikes for ids that
@@ -110,8 +131,9 @@ export async function checkDeadLinks(bookmarks, deps = {}) {
   async function worker() {
     while (idx < queue.length) {
       const b = queue[idx++];
-      const dead = await isDead(b.url, fetchFn, timeoutMs);
-      if (dead) results.push(deleteItem(b, `Dead link (${dead})`));
+      const status = await probeStatus(b.url, fetchFn, timeoutMs);
+      const reason = deadReason(status);
+      if (reason) results.push(deleteItem(b, `Dead link (${reason})`, { category: 'dead', httpStatus: status }));
     }
   }
 

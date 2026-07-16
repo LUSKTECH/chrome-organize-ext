@@ -7,3 +7,14 @@ export const ACTION_LABELS = {
   deleteBookmark: 'Delete bookmark',
   discardTab: 'Suspend tab',
 };
+
+// Human labels for the bookmark-cleanup status buckets (see viewmodel.statusBucket).
+export const STATUS_LABELS = {
+  'http-404': 'Not found (404)',
+  'http-410': 'Gone (410)',
+  unreachable: 'Unreachable',
+  'dead-other': 'Dead link',
+  duplicate: 'Duplicate',
+  stale: 'Not visited recently',
+  other: 'Other',
+};

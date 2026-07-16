@@ -9,6 +9,7 @@
   "featBookmarkImportant": { "message": "Bookmark important", "description": "Run only important-bookmark detection." },
   "featCleanBookmarks": { "message": "Clean bookmarks", "description": "Run only bookmark cleanup." },
   "clearList": { "message": "Clear list", "description": "Clear the suggestion list." },
+  "groupByStatus": { "message": "Group bookmarks by status", "description": "Toggle: split the bookmark cleanup list into per-status sub-groups." },
   "openTabs": { "message": "Open tabs", "description": "Open-tabs panel heading." },
   "closeSelected": { "message": "Close selected", "description": "Close the selected open tabs." },
   "commandLabel": { "message": "Type a command", "description": "Command tool disclosure label." },

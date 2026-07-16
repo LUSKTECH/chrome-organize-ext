@@ -9,6 +9,28 @@ const items = [
 ];
 
 import { filterTabs, describeIgnoreKey, installCommand, moveMember } from '../extension/sidepanel/viewmodel.js';
+import { groupByStatus, statusBucket, statusLabel } from '../extension/sidepanel/viewmodel.js';
+
+test('groupByStatus buckets delete items by category/http status', () => {
+  const del = [
+    { category: 'dead', data: { httpStatus: 404 } },
+    { category: 'dead', data: { httpStatus: 410 } },
+    { category: 'dead', data: { httpStatus: 0 } },
+    { category: 'dead', data: { httpStatus: 500 } },
+    { category: 'duplicate', data: {} },
+    { category: 'stale', data: {} },
+  ];
+  const g = groupByStatus(del);
+  assert.equal(g['http-404'].length, 1);
+  assert.equal(g['http-410'].length, 1);
+  assert.equal(g['unreachable'].length, 1);
+  assert.equal(g['dead-other'].length, 1);
+  assert.equal(g['duplicate'].length, 1);
+  assert.equal(g['stale'].length, 1);
+  assert.equal(statusBucket({ category: 'dead', data: { httpStatus: 404 } }), 'http-404');
+  assert.equal(statusLabel('http-404'), 'Not found (404)');
+  assert.equal(statusLabel('unreachable'), 'Unreachable');
+});
 
 test('describeIgnoreKey renders a human label', () => {
   assert.equal(describeIgnoreKey('closeTab:https://a.com/x'), 'Close tab: https://a.com/x');

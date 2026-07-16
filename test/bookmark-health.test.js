@@ -78,6 +78,44 @@ test('checkDeadLinks flags 404 and connection errors, spares timeouts and 200', 
   assert.deepEqual(ids, ['2', '3']); // 404 + connection error; slow(200-ish timeout) and non-http skipped
 });
 
+test('checkDeadLinks tags dead items with category + numeric httpStatus', async () => {
+  const fetchFn = async (url) => ({ status: url.includes('gone') ? 410 : 404 });
+  const bms = [
+    { id: '1', url: 'https://x.com/missing', parentId: '1', index: 0, title: 'm' },
+    { id: '2', url: 'https://x.com/gone', parentId: '1', index: 1, title: 'g' },
+  ];
+  const items = await checkDeadLinks(bms, { fetchFn, concurrency: 2 });
+  const byId = Object.fromEntries(items.map((i) => [i.data.bookmarkId, i]));
+  assert.equal(byId['1'].category, 'dead');
+  assert.equal(byId['1'].data.httpStatus, 404);
+  assert.equal(byId['2'].data.httpStatus, 410);
+});
+
+test('checkDeadLinks treats opaqueredirect (manual redirect, status 0) as alive', async () => {
+  // Real browsers return { type: 'opaqueredirect', status: 0 } for a 3xx under
+  // redirect:'manual'. That must NOT be flagged unreachable/dead.
+  const fetchFn = async () => ({ status: 0, type: 'opaqueredirect' });
+  const items = await checkDeadLinks([{ id: '7', url: 'https://moved.example/', parentId: '1', index: 0, title: 'm' }], { fetchFn, concurrency: 1 });
+  assert.deepEqual(items, []);
+});
+
+test('checkDeadLinks marks connection failures unreachable (httpStatus 0)', async () => {
+  const fetchFn = async () => { throw Object.assign(new Error('boom'), { name: 'TypeError' }); };
+  const items = await checkDeadLinks([{ id: '9', url: 'https://x.com/', parentId: '1', index: 0, title: 'x' }], { fetchFn, concurrency: 1 });
+  assert.equal(items[0].category, 'dead');
+  assert.equal(items[0].data.httpStatus, 0);
+});
+
+test('duplicate/stale proposals carry their category', () => {
+  const dups = findDuplicateBookmarks([
+    { id: '1', url: 'https://a.com', parentId: '1', index: 0, title: 'a' },
+    { id: '2', url: 'https://a.com', parentId: '1', index: 1, title: 'a' },
+  ]);
+  assert.equal(dups[0].category, 'duplicate');
+  const stale = findStaleBookmarks([{ id: '3', url: 'https://b.com', parentId: '1', index: 0, dateAdded: 0 }], new Map(), 30, 1e12);
+  assert.equal(stale[0].category, 'stale');
+});
+
 test('recordDeadStrikes: confirms on 2nd dead; carries forward unscanned; resets scanned-alive', () => {
   // pass 1: both scanned and dead
   let r = recordDeadStrikes({}, ['b1', 'b2'], ['b1', 'b2']);

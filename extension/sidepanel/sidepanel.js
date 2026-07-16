@@ -6,6 +6,7 @@ import {
   excludeMember, renameGroup, recolorGroup, healthMessage, progressLabel, groupUndoByRun, toMarkdown, filterTabs,
   describeIgnoreKey, installCommand, moveMember,
   allItemIds, filterPlan, needsBulkConfirm, destructiveCount, adapterNote, formatElapsed,
+  groupByStatus, statusLabel,
 } from './viewmodel.js';
 
 import { TAB_GROUP_COLORS as GROUP_COLORS } from '../lib/colors.js';
@@ -16,6 +17,10 @@ const expandedGroups = new Set();
 let openTabs = [];
 let tabSelection = new Set();
 let planFilter = '';
+let groupBookmarksByStatus = false; // panel-local pref: bucket the Delete-bookmark group by status
+
+// Fixed display order for the bookmark status buckets (see viewmodel.statusBucket).
+const BUCKET_ORDER = ['http-404', 'http-410', 'unreachable', 'dead-other', 'duplicate', 'stale', 'other'];
 
 const $ = (id) => document.getElementById(id);
 const setStatus = (t) => { $('status').textContent = t; };
@@ -190,44 +195,75 @@ function renderPlan(animate = false) {
 
   const groups = groupByAction(shown);
   const tpl = $('itemTemplate');
+  const stagger = (el) => {
+    if (!animate) return;
+    el.classList.add('enter');
+    el.style.setProperty('--i', Math.min(enterIdx++, 10));
+  };
+  const appendItem = (ul, item) => {
+    if (item.action === 'groupTabs') {
+      const gEl = renderGroupItem(item);
+      stagger(gEl);
+      ul.appendChild(gEl);
+      return;
+    }
+    const node = buildItemNode(item, tpl);
+    stagger(node.querySelector('.item'));
+    ul.appendChild(node);
+  };
   for (const [action, items] of Object.entries(groups)) {
     const section = document.createElement('div');
     section.className = 'group';
     const h = document.createElement('h2');
     h.textContent = `${actionLabel(action)} (${items.length})`;
     section.appendChild(h);
-    const ul = document.createElement('ul');
-    for (const item of items) {
-      if (action === 'groupTabs') {
-        const gEl = renderGroupItem(item);
-        if (animate) { gEl.classList.add('enter'); gEl.style.setProperty('--i', Math.min(enterIdx++, 10)); }
-        ul.appendChild(gEl);
-        continue;
+    // Bookmark cleanup can optionally split into per-status sub-groups.
+    if (action === 'deleteBookmark' && groupBookmarksByStatus) {
+      const buckets = groupByStatus(items);
+      for (const key of BUCKET_ORDER) {
+        const bItems = buckets[key];
+        if (!bItems || !bItems.length) continue;
+        const sub = document.createElement('div');
+        sub.className = 'subgroup';
+        const h3 = document.createElement('h3');
+        h3.textContent = `${statusLabel(key)} (${bItems.length})`;
+        sub.appendChild(h3);
+        const subUl = document.createElement('ul');
+        for (const item of bItems) appendItem(subUl, item);
+        sub.appendChild(subUl);
+        section.appendChild(sub);
       }
-      const node = tpl.content.cloneNode(true);
-      const check = node.querySelector('.itemCheck');
-      check.checked = selection.has(item.itemId);
-      check.addEventListener('change', () => { selection = toggleSelection(selection, item.itemId); });
-      node.querySelector('.itemAction').textContent = item.data.groupName || item.data.title || item.data.url || '';
-      node.querySelector('.itemReason').textContent = item.reason || '';
-      node.querySelector('.itemUrl').textContent = item.data.url || (item.data.tabIds ? `${item.data.tabIds.length} tabs` : '');
-      node.querySelector('.itemIgnore').addEventListener('click', () => ignoreItem(item));
-      // Click-to-focus: only meaningful when the suggestion targets a live tab.
-      if (item.data.tabId != null) {
-        const goBtn = document.createElement('button');
-        goBtn.type = 'button';
-        goBtn.className = 'itemFocus';
-        goBtn.textContent = 'Go to tab';
-        goBtn.setAttribute('aria-label', `Go to tab: ${item.data.title || item.data.url || ''}`);
-        goBtn.addEventListener('click', () => focusTab(item.data.tabId));
-        node.querySelector('.item').appendChild(goBtn);
-      }
-      if (animate) { const el = node.querySelector('.item'); el.classList.add('enter'); el.style.setProperty('--i', Math.min(enterIdx++, 10)); }
-      ul.appendChild(node);
+    } else {
+      const ul = document.createElement('ul');
+      for (const item of items) appendItem(ul, item);
+      section.appendChild(ul);
     }
-    section.appendChild(ul);
     container.appendChild(section);
   }
+}
+
+// Builds one suggestion row (checkbox, title/reason/url, ignore, optional
+// go-to-tab) from the shared <template>. Returns the cloned fragment.
+function buildItemNode(item, tpl) {
+  const node = tpl.content.cloneNode(true);
+  const check = node.querySelector('.itemCheck');
+  check.checked = selection.has(item.itemId);
+  check.addEventListener('change', () => { selection = toggleSelection(selection, item.itemId); });
+  node.querySelector('.itemAction').textContent = item.data.groupName || item.data.title || item.data.url || '';
+  node.querySelector('.itemReason').textContent = item.reason || '';
+  node.querySelector('.itemUrl').textContent = item.data.url || (item.data.tabIds ? `${item.data.tabIds.length} tabs` : '');
+  node.querySelector('.itemIgnore').addEventListener('click', () => ignoreItem(item));
+  // Click-to-focus: only meaningful when the suggestion targets a live tab.
+  if (item.data.tabId != null) {
+    const goBtn = document.createElement('button');
+    goBtn.type = 'button';
+    goBtn.className = 'itemFocus';
+    goBtn.textContent = 'Go to tab';
+    goBtn.setAttribute('aria-label', `Go to tab: ${item.data.title || item.data.url || ''}`);
+    goBtn.addEventListener('click', () => focusTab(item.data.tabId));
+    node.querySelector('.item').appendChild(goBtn);
+  }
+  return node;
 }
 
 let toastTimer = null;
@@ -408,6 +444,18 @@ $('expandAll').addEventListener('click', () => {
   renderPlan();
 });
 $('collapseAll').addEventListener('click', () => { expandedGroups.clear(); renderPlan(); });
+
+// "Group bookmarks by status" toggle — panel-local pref persisted in storage.local.
+$('groupByStatus').addEventListener('change', (e) => {
+  groupBookmarksByStatus = e.target.checked;
+  chrome.storage.local.set({ groupBookmarksByStatus });
+  renderPlan();
+});
+chrome.storage.local.get('groupBookmarksByStatus').then(({ groupBookmarksByStatus: pref }) => {
+  groupBookmarksByStatus = !!pref;
+  $('groupByStatus').checked = groupBookmarksByStatus;
+  if (groupBookmarksByStatus) renderPlan();
+});
 
 $('commandForm').addEventListener('submit', async (e) => {
   e.preventDefault();

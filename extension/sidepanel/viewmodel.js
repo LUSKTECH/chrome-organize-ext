@@ -1,9 +1,31 @@
-import { ACTION_LABELS } from '../lib/labels.js';
+import { ACTION_LABELS, STATUS_LABELS } from '../lib/labels.js';
 import { summarize, digestText } from '../lib/plan-summary.js';
 
 export { summarize, digestText };
 
 export function actionLabel(action) { return ACTION_LABELS[action] || action; }
+
+export function statusLabel(bucket) { return STATUS_LABELS[bucket] || bucket; }
+
+// Maps a bookmark-cleanup proposal to a status bucket key for grouped display.
+export function statusBucket(item) {
+  if (item.category === 'duplicate') return 'duplicate';
+  if (item.category === 'stale') return 'stale';
+  if (item.category === 'dead') {
+    const s = item.data?.httpStatus;
+    if (s === 404) return 'http-404';
+    if (s === 410) return 'http-410';
+    if (s === 0) return 'unreachable';
+    return 'dead-other';
+  }
+  return 'other';
+}
+
+export function groupByStatus(items) {
+  const out = {};
+  for (const it of items) (out[statusBucket(it)] ||= []).push(it);
+  return out;
+}
 
 // Human-readable label for an ignore-list key ("closeTab:https://a.com/x").
 export function describeIgnoreKey(key) {
