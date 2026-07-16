@@ -1,6 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseJsonBlock, parseGroupResult, parseStaleResult, parseImportantResult, parseCommandResult } from '../native-host/parse.js';
+import { parseJsonBlock, parseGroupResult, parseStaleResult, parseImportantResult, parseCommandResult, parseOrganizeResult } from '../native-host/parse.js';
+
+test('parseOrganizeResult coerces ids to strings and requires a destination', () => {
+  const m = parseOrganizeResult('{"moves":[{"bookmarkId":12,"targetFolderId":5,"reason":"ref"},{"bookmarkId":13,"newFolderPath":["Dev","X"]},{"bookmarkId":14,"reason":"no dest"}]}');
+  assert.equal(m.length, 2);
+  assert.equal(m[0].bookmarkId, '12');
+  assert.equal(m[0].targetFolderId, '5');
+  assert.deepEqual(m[1].newFolderPath, ['Dev', 'X']);
+  assert.ok(!m.some((x) => x.bookmarkId === '14')); // no destination → dropped
+});
 
 test('parseJsonBlock reads plain JSON', () => {
   assert.deepEqual(parseJsonBlock('{"a":1}'), { a: 1 });

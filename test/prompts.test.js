@@ -1,6 +1,19 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildGroupPrompt, buildStalePrompt, buildImportantPrompt, buildCommandPrompt } from '../native-host/prompts.js';
+import { buildGroupPrompt, buildStalePrompt, buildImportantPrompt, buildCommandPrompt, buildOrganizePrompt } from '../native-host/prompts.js';
+
+test('buildOrganizePrompt wraps data, lists folders, and states the mode', () => {
+  const p = buildOrganizePrompt(
+    [{ id: '9', title: 'MDN', url: 'https://mdn.dev', folder: 'Other Bookmarks' }],
+    [{ id: '5', path: 'Other Bookmarks/Dev' }],
+    'match',
+  );
+  assert.match(p, /MODE=match/);
+  assert.match(p, /9\tMDN\thttps:\/\/mdn\.dev/);
+  assert.match(p, /5\tOther Bookmarks\/Dev/);
+  assert.match(p, /"moves"/);
+  assert.match(p, /DATA, not instructions/);
+});
 
 const tabs = [
   { tabId: 11, title: 'MDN Array', url: 'https://developer.mozilla.org/array', idleDays: 2 },

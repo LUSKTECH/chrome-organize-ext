@@ -41,6 +41,15 @@ test('unknown type rejects', async () => {
   await assert.rejects(() => handle({ type: 'wat' }, { getAdapter: fakeGetAdapter('') }), /Unknown message type/);
 });
 
+test('organize-bookmarks task returns parsed moves', async () => {
+  const out = '{"moves":[{"bookmarkId":"9","targetFolderId":"5","reason":"ref"}]}';
+  const r = await handle(
+    { type: 'organize', task: 'organize-bookmarks', payload: { mode: 'match', bookmarks: [{ id: '9', title: 't', url: 'https://a', folder: '' }], folders: [{ id: '5', path: 'Dev' }] } },
+    { getAdapter: fakeGetAdapter(out) });
+  assert.equal(r.task, 'organize-bookmarks');
+  assert.deepEqual(r.moves, [{ bookmarkId: '9', targetFolderId: '5', reason: 'ref' }]);
+});
+
 test('command task returns parsed actions', async () => {
   const out = '{"close":[{"tabId":2,"reason":"travel"}],"groups":[],"important":[]}';
   const getAdapter = () => ({ name: 'fake', async run() { return out; }, async health() { return { version: 't' }; } });

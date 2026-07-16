@@ -1,6 +1,6 @@
 import { getAdapter as defaultGetAdapter } from './adapters/registry.js';
-import { buildGroupPrompt, buildStalePrompt, buildImportantPrompt, buildCommandPrompt } from './prompts.js';
-import { parseGroupResult, parseStaleResult, parseImportantResult, parseCommandResult } from './parse.js';
+import { buildGroupPrompt, buildStalePrompt, buildImportantPrompt, buildCommandPrompt, buildOrganizePrompt } from './prompts.js';
+import { parseGroupResult, parseStaleResult, parseImportantResult, parseCommandResult, parseOrganizeResult } from './parse.js';
 import { sanitizeOptions, sanitizeConfig } from './config.js';
 
 export async function handle(msg, deps = {}) {
@@ -36,6 +36,10 @@ export async function handle(msg, deps = {}) {
     if (task === 'important') {
       const out = await adapter.run(buildImportantPrompt(payload.tabs, rules), opts);
       return { task, important: parseImportantResult(out) };
+    }
+    if (task === 'organize-bookmarks') {
+      const out = await adapter.run(buildOrganizePrompt(payload.bookmarks, payload.folders, payload.mode, rules), opts);
+      return { task, moves: parseOrganizeResult(out) };
     }
     throw new Error(`Unknown task: ${task}`);
   }

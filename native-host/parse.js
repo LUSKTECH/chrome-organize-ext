@@ -93,6 +93,27 @@ export function parseImportantResult(text) {
   return normalizeImportant(obj && obj.important);
 }
 
+// Bookmark ids are strings (chrome bookmark ids), unlike numeric tabIds. Each
+// move must carry a destination (existing targetFolderId or a newFolderPath).
+export function normalizeOrganize(moves) {
+  if (!Array.isArray(moves)) throw new Error('Expected {"moves":[...]}');
+  return moves
+    .filter((m) => m && m.bookmarkId != null)
+    .map((m) => {
+      const out = { bookmarkId: String(m.bookmarkId), reason: String(m.reason ?? '') };
+      if (m.targetFolderId != null) out.targetFolderId = String(m.targetFolderId);
+      const path = Array.isArray(m.newFolderPath) ? m.newFolderPath.map(String).filter(Boolean) : [];
+      if (path.length) out.newFolderPath = path;
+      return out;
+    })
+    .filter((m) => m.targetFolderId || m.newFolderPath);
+}
+
+export function parseOrganizeResult(text) {
+  const obj = parseJsonBlock(text);
+  return normalizeOrganize(obj && obj.moves);
+}
+
 export function parseCommandResult(text) {
   const obj = parseJsonBlock(text) || {}; // model may emit literal null
   return {
