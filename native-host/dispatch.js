@@ -2,6 +2,7 @@ import { getAdapter as defaultGetAdapter } from './adapters/registry.js';
 import { buildGroupPrompt, buildStalePrompt, buildImportantPrompt, buildCommandPrompt, buildOrganizePrompt } from './prompts.js';
 import { parseGroupResult, parseStaleResult, parseImportantResult, parseCommandResult, parseOrganizeResult } from './parse.js';
 import { sanitizeOptions, sanitizeConfig } from './config.js';
+import { hostVersion } from './version.js';
 
 export async function handle(msg, deps = {}) {
   const getAdapter = deps.getAdapter || defaultGetAdapter;
@@ -16,9 +17,9 @@ export async function handle(msg, deps = {}) {
   if (msg.type === 'health') {
     try {
       const info = await adapter.health(opts);
-      return { adapter: adapter.name, ready: true, version: info.version };
+      return { adapter: adapter.name, ready: true, version: info.version, hostVersion: hostVersion() };
     } catch (err) {
-      return { adapter: adapter.name, ready: false, error: String((err && err.message) || err) };
+      return { adapter: adapter.name, ready: false, error: String((err && err.message) || err), hostVersion: hostVersion() };
     }
   }
 

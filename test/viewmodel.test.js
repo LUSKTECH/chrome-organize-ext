@@ -158,6 +158,14 @@ test('healthMessage reports connected vs not', () => {
   assert.match(bad.text, /browser-organizer-host/);
 });
 
+test('healthMessage appends the host bridge version when present', () => {
+  assert.deepEqual(healthMessage({ ready: true, version: '2.1.0', hostVersion: '0.1.3' }), { ok: true, text: 'Claude CLI connected (2.1.0) · bridge v0.1.3' });
+});
+
+test('healthMessage omits the bridge suffix when the host version is unknown', () => {
+  assert.deepEqual(healthMessage({ ready: true, version: '2.1.0', hostVersion: 'unknown' }), { ok: true, text: 'Claude CLI connected (2.1.0)' });
+});
+
 test('healthMessage labels the connected adapter', () => {
   assert.deepEqual(healthMessage({ ready: true, version: '1.0', adapter: 'antigravity' }), { ok: true, text: 'Antigravity CLI connected (1.0)' });
   assert.deepEqual(healthMessage({ ready: true, version: '2.0', adapter: 'kiro' }), { ok: true, text: 'Kiro CLI connected (2.0)' });

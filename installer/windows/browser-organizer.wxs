@@ -3,7 +3,7 @@
   Browser Organizer native host — per-machine MSI (for administrators).
 
   TOOLCHAIN: WiX Toolset v4/v5 (installed as a dotnet global tool). Build with:
-    wix build installer\windows\browser-organizer.wxs -d Version=0.1.2 -arch x64 -o dist\BrowserOrganizer.msi
+    wix build installer\windows\browser-organizer.wxs -d Version=0.1.3 -arch x64 -o dist\BrowserOrganizer.msi
   from the repo root. Expects the SEA binary at dist\host\browser-organizer-host.exe
   (from `npm run build:sea`). Not built in the offline sandbox — only on a
   windows-latest runner (see .github/workflows/release-host.yml) or by a maintainer.

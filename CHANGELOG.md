@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.3 — 2026-07-16
+- **Show the host bridge version in the panel.** The connection banner now reads
+  e.g. "Claude CLI connected (2.1.209) · bridge v0.1.3", so you can confirm which
+  native-host version the extension is actually talking to (the CLI version and
+  the bridge version were previously indistinguishable). The host reports its own
+  version in the `health` response.
+
 ## 0.1.2 — 2026-07-16
 Organize bookmarks into folders (AI), plus bookmark-cleanup status grouping.
 

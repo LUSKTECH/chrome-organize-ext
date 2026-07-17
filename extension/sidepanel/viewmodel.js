@@ -154,7 +154,8 @@ export function healthMessage(health, extensionId = '<your-extension-id>') {
   const key = health && health.adapter;
   const label = ADAPTER_LABELS[key] || 'Claude CLI';
   const cmd = ADAPTER_CMDS[key] || 'claude';
-  if (health && health.ready) return { ok: true, text: `${label} connected (${health.version || 'ok'})` };
+  const bridge = health && health.hostVersion && health.hostVersion !== 'unknown' ? ` · bridge v${health.hostVersion}` : '';
+  if (health && health.ready) return { ok: true, text: `${label} connected (${health.version || 'ok'})${bridge}` };
   if (API_ADAPTERS.has(key)) {
     return {
       ok: false,

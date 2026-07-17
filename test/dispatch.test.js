@@ -11,6 +11,7 @@ test('health runs the adapter version check and reports ready', async () => {
   assert.equal(r.ready, true);
   assert.equal(r.adapter, 'fake');
   assert.equal(r.version, 'test');
+  assert.match(r.hostVersion, /^\d+\.\d+\.\d+$/); // bridge version reported alongside the CLI version
 });
 
 test('health reports not ready when the version check fails', async () => {
