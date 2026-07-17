@@ -384,6 +384,9 @@ async function startScan(features) {
   plan = (await send({ cmd: 'getPlan' })).items;
   selection = new Set();
   renderPlan(true);
+  // Surface actionable warnings (e.g. an out-of-date helper) instead of the
+  // misleading "looks tidy" when a phase couldn't run.
+  if (res.warnings && res.warnings.length) { flashStatus(res.warnings[0]); return; }
   setStatus(plan.length ? `${plan.length} suggestions.` : 'Nothing to do — your browser looks tidy.');
 }
 

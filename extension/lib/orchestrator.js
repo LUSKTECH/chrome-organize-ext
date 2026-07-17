@@ -69,6 +69,7 @@ export function findEmptyFolders(folders, bookmarks, moves = []) {
 export async function buildPlan(deps) {
   const { settings, nativeClient, chromeApi = chrome, now = Date.now() } = deps;
   const onProgress = deps.onProgress || (() => {});
+  const onWarning = deps.onWarning || (() => {});
   const shouldCancel = deps.shouldCancel || (() => false);
   const PHASES = 6;
   let done = 0;
@@ -174,7 +175,14 @@ export async function buildPlan(deps) {
         items.push(...moveItems);
       }
       if (settings.removeEmptyFolders) items.push(...findEmptyFolders(folders, tree.bookmarks, moveItems));
-    } catch (e) { console.warn('[organizer] organize-bookmarks phase failed:', e); }
+    } catch (e) {
+      console.warn('[organizer] organize-bookmarks phase failed:', e);
+      // An out-of-date native host doesn't know this task and rejects it — tell
+      // the user to update the helper instead of silently showing "nothing to do".
+      if (/unknown task/i.test(String((e && e.message) || e))) {
+        onWarning('Your helper (native host) is out of date and can’t sort bookmarks yet. Update it — run `browser-organizer-host` in a terminal — then reload the extension.');
+      }
+    }
   }
 
   return finalizePlan(items, settings, folders);

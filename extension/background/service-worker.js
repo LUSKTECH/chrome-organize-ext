@@ -125,8 +125,9 @@ function runScan(deps = {}) {
   scanInFlight = (async () => {
     const settings = await getSettings();
     const nativeClient = await makeClient(settings);
+    const warnings = [];
     try {
-      const items = await buildPlan({ settings, nativeClient, onProgress, shouldCancel, features: deps.features, windowId: deps.windowId ?? null });
+      const items = await buildPlan({ settings, nativeClient, onProgress, shouldCancel, onWarning: (w) => warnings.push(w), features: deps.features, windowId: deps.windowId ?? null });
       const { autoApply, needsReview } = partitionForApply(items, settings);
       await withLock('currentPlan', () => chrome.storage.local.set({ currentPlan: needsReview }));
       if (autoApply.length) {
@@ -137,7 +138,7 @@ function runScan(deps = {}) {
         // Only notify for background/scheduled scans; a foreground run already shows the panel.
         await notify(digestText(needsReview));
       }
-      return items;
+      return { items, warnings };
     } finally {
       nativeClient.disconnect();
     }
@@ -188,8 +189,8 @@ async function notify(message) {
 // ---- Message handlers (one function per command; dispatched by the map below) ----
 
 async function handleRun(m) {
-  const items = await runScan({ features: m.features, windowId: m.windowId ?? null });
-  return { ok: true, items };
+  const { items, warnings } = await runScan({ features: m.features, windowId: m.windowId ?? null });
+  return { ok: true, items, warnings };
 }
 
 function handleCancel() {
