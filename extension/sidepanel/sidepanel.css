@@ -144,7 +144,17 @@ input[type="checkbox"] { accent-color: var(--accent); width: 15px; height: 15px;
 
 #cancelRun { margin-top: 8px; color: var(--danger); }
 #cancelRun[hidden] { display: none; }
-#status { min-height: 1.1em; margin: 8px 0 0; color: var(--text-muted); font-size: 12px; }
+#status { min-height: 1.1em; margin: 8px 0 0; color: var(--text-muted); font-size: 12px; border-radius: 4px; }
+/* Brief highlight so a save confirmation is noticed — and re-noticed on repeat. */
+#status.flash { animation: statusFlash 1.3s ease-out; }
+@keyframes statusFlash {
+  0% { background: var(--accent); color: var(--accent-fg); padding: 2px 6px; }
+  70% { background: var(--accent); color: var(--accent-fg); padding: 2px 6px; }
+  100% { background: transparent; color: var(--text-muted); padding: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #status.flash { animation: none; }
+}
 
 /* Quick per-feature runs — visually subordinate to the primary Analyze CTA */
 .quickActions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
@@ -203,18 +213,33 @@ input[type="checkbox"] { accent-color: var(--accent); width: 15px; height: 15px;
   color: var(--text-faint);
   margin: 0 0 8px;
   font-variant-numeric: tabular-nums;
+  /* Stick the group heading while scrolling a long list. */
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg);
+  padding: 4px 0;
 }
 .group ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .subgroup { margin: 0 0 10px; }
-.subgroup h3 {
+.subgroup > summary {
   font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-faint);
-  margin: 0 0 5px 2px;
+  margin: 0 0 5px;
+  padding: 4px 0 4px 2px;
   font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  /* Stick just below the group heading so the current status is always visible. */
+  position: sticky;
+  top: 27px;
+  z-index: 1;
+  background: var(--bg);
 }
+.subgroup > summary:hover { color: var(--text-muted); }
+.subgroup[open] > summary { margin-bottom: 6px; }
 ul { margin: 0; padding: 0; }
 
 .item {

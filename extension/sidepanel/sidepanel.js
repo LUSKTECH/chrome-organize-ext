@@ -21,9 +21,19 @@ let groupBookmarksByStatus = false; // panel-local pref: bucket the Delete-bookm
 
 // Fixed display order for the bookmark status buckets (see viewmodel.statusBucket).
 const BUCKET_ORDER = ['http-404', 'http-410', 'unreachable', 'dead-other', 'duplicate', 'stale', 'other'];
+const collapsedBuckets = new Set(); // status sub-groups the user has collapsed
 
 const $ = (id) => document.getElementById(id);
 const setStatus = (t) => { $('status').textContent = t; };
+// Like setStatus but re-triggers a brief highlight on every call, so a repeated
+// confirmation (e.g. pressing Save twice) is still visibly acknowledged.
+function flashStatus(t) {
+  const el = $('status');
+  el.textContent = t;
+  el.classList.remove('flash');
+  void el.offsetWidth; // reflow so the CSS animation restarts even if text is unchanged
+  el.classList.add('flash');
+}
 
 function send(message) {
   return new Promise((resolve) => chrome.runtime.sendMessage(message, resolve));
@@ -223,11 +233,15 @@ function renderPlan(animate = false) {
       for (const key of BUCKET_ORDER) {
         const bItems = buckets[key];
         if (!bItems || !bItems.length) continue;
-        const sub = document.createElement('div');
+        // <details> so each status sub-group collapses independently and the
+        // Expand/Collapse-groups buttons can drive it.
+        const sub = document.createElement('details');
         sub.className = 'subgroup';
-        const h3 = document.createElement('h3');
-        h3.textContent = `${statusLabel(key)} (${bItems.length})`;
-        sub.appendChild(h3);
+        sub.open = !collapsedBuckets.has(key);
+        sub.addEventListener('toggle', () => { if (sub.open) collapsedBuckets.delete(key); else collapsedBuckets.add(key); });
+        const sm = document.createElement('summary');
+        sm.textContent = `${statusLabel(key)} (${bItems.length})`;
+        sub.appendChild(sm);
         const subUl = document.createElement('ul');
         for (const item of bItems) appendItem(subUl, item);
         sub.appendChild(subUl);
@@ -441,9 +455,14 @@ $('selectAll').addEventListener('click', () => { selection = new Set(allItemIds(
 $('selectNone').addEventListener('click', () => { selection = new Set(); renderPlan(); });
 $('expandAll').addEventListener('click', () => {
   for (const it of plan) if (it.action === 'groupTabs') expandedGroups.add(it.itemId);
+  collapsedBuckets.clear(); // status sub-groups all open
   renderPlan();
 });
-$('collapseAll').addEventListener('click', () => { expandedGroups.clear(); renderPlan(); });
+$('collapseAll').addEventListener('click', () => {
+  expandedGroups.clear();
+  for (const key of BUCKET_ORDER) collapsedBuckets.add(key); // status sub-groups all closed
+  renderPlan();
+});
 
 // "Group bookmarks by status" toggle — panel-local pref persisted in storage.local.
 $('groupByStatus').addEventListener('change', (e) => {
@@ -653,7 +672,7 @@ $('settingsForm').addEventListener('submit', async (e) => {
   // it queries the newly-saved adapter and updates connected/version or the
   // onboarding card + disables Analyze if the new backend isn't reachable.
   await checkHealth();
-  setStatus('Settings saved.');
+  flashStatus('Settings saved.');
 });
 
 async function renderSessions() {
