@@ -77,9 +77,10 @@ async function applyItemInner(item, c) {
     }
     case 'removeFolder': {
       const { folderId, parentId, index, title } = item.data;
-      // Guards (independent of the planner): never touch a root, never remove a
+      // Guards (independent of the planner): never touch a root (by classic id
+      // OR any top-level node — Edge's roots aren't 0/1/2/3), never remove a
       // folder that still has children at apply time (keeps partial-apply safe).
-      if (ROOT_IDS.has(folderId)) return { undoId: undoId(), ts: Date.now(), action: 'removeFolder', reverse: null, skipped: true };
+      if (ROOT_IDS.has(folderId) || parentId === '0') return { undoId: undoId(), ts: Date.now(), action: 'removeFolder', reverse: null, skipped: true };
       // The folder may already be gone (user deleted it before apply) — treat a
       // failed lookup as a skip so the batch keeps going.
       const kids = await c.bookmarks.getChildren(folderId).catch(() => null);

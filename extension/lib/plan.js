@@ -80,8 +80,9 @@ export function mapImportantResult(important, tabsById) {
 
 // Maps model "moves" to moveBookmark items. `bookmarksById` is keyed by string
 // bookmark id (the candidates sent to the model). match mode forbids new folders;
-// new folders are created under Other Bookmarks ('2') so the bar stays untouched.
-export function mapOrganizeResult(moves, bookmarksById, mode = 'additive') {
+// new folders are created under `otherId` (the real "Other bookmarks" root,
+// which differs between Chrome and Edge) so the bar stays untouched.
+export function mapOrganizeResult(moves, bookmarksById, mode = 'additive', otherId = '2') {
   return (moves || [])
     .map((m) => {
       const b = bookmarksById.get(m.bookmarkId);
@@ -98,7 +99,7 @@ export function mapOrganizeResult(moves, bookmarksById, mode = 'additive') {
         item.data.toParentId = m.targetFolderId;
       } else if (m.newFolderPath && m.newFolderPath.length && mode !== 'match') {
         item.data.toFolderPath = m.newFolderPath;
-        item.data.toRootId = '2';
+        item.data.toRootId = otherId;
       } else {
         return null; // match mode + newFolderPath, or no usable destination
       }
