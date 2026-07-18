@@ -167,21 +167,32 @@ export async function buildPlan(deps) {
       const mode = settings.organizeMode || 'additive';
       const candidates = selectOrganizeCandidates(tree.bookmarks, mode);
       let moveItems = [];
-      if (candidates.length) {
+      if (!candidates.length) {
+        console.info(`[organizer] organize: 0 candidates (mode=${mode}, ${tree.bookmarks.length} bookmarks total)`);
+        onWarning(`Nothing to sort: no loose bookmarks were found${settings.protectBookmarkBar ? ' outside the protected bookmarks bar' : ''}. "Match"/"Add folders" only move bookmarks that aren't already in a folder — try "Fully reorganize" in Settings to include filed ones.`);
+      } else {
         const byId = new Map(candidates.map((b) => [b.id, b]));
         const folderInv = folders.map((fo) => ({ id: fo.id, path: (fo.path || []).join('/') }));
         const r = await nativeClient.request({ type: 'organize', task: 'organize-bookmarks', adapter, payload: { mode, folders: folderInv, bookmarks: projectBookmarksForHost(candidates), rules } });
-        moveItems = mapOrganizeResult(r.moves, byId, mode);
+        const rawMoves = Array.isArray(r && r.moves) ? r.moves : [];
+        moveItems = mapOrganizeResult(r && r.moves, byId, mode);
+        // Diagnostic: candidates in, moves the model returned, moves that survived mapping.
+        console.info(`[organizer] organize: ${candidates.length} candidate(s), mode=${mode} → model returned ${rawMoves.length} move(s) → ${moveItems.length} usable after mapping`);
         items.push(...moveItems);
+        if (!moveItems.length) {
+          onWarning(rawMoves.length
+            ? `The AI returned ${rawMoves.length} move(s) for ${candidates.length} bookmarks, but none matched (its ids didn't line up — common with very large collections). Sorting fewer at a time should help.`
+            : `The AI reviewed ${candidates.length} loose bookmark(s) and proposed no moves. Large collections can overwhelm it; try again or with fewer bookmarks.`);
+        }
       }
       if (settings.removeEmptyFolders) items.push(...findEmptyFolders(folders, tree.bookmarks, moveItems));
     } catch (e) {
       console.warn('[organizer] organize-bookmarks phase failed:', e);
-      // An out-of-date native host doesn't know this task and rejects it — tell
-      // the user to update the helper instead of silently showing "nothing to do".
-      if (/unknown task/i.test(String((e && e.message) || e))) {
-        onWarning('Your helper (native host) is out of date and can’t sort bookmarks yet. Update it — run `browser-organizer-host` in a terminal — then reload the extension.');
-      }
+      // Never fall through to a silent "looks tidy": surface the failure. Call out
+      // the out-of-date-host case specifically (it rejects the task as unknown).
+      onWarning(/unknown task/i.test(String((e && e.message) || e))
+        ? 'Your helper (native host) is out of date and can’t sort bookmarks yet. Update it — run `browser-organizer-host` in a terminal — then reload the extension.'
+        : 'Sorting bookmarks failed (it may have timed out on a large collection). See the service-worker console for details, and try again with fewer bookmarks.');
     }
   }
 
