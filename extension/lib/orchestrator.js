@@ -1,5 +1,5 @@
 import { collectTabs } from './tab-collector.js';
-import { collectBookmarks, collectTree, isUnfiled, ROOT_IDS } from './bookmark-collector.js';
+import { collectBookmarks, collectTree, isUnfiled, ROOT_IDS, BAR_ID } from './bookmark-collector.js';
 import { reconcile } from './activity-tracker.js';
 import { indexById, mapGroupResult, mapStaleResult, mapImportantResult, mapOrganizeResult, validatePlanItem } from './plan.js';
 import { findDuplicateBookmarks, findStaleBookmarks, getVisitsMap, checkDeadLinks, recordDeadStrikes, dedupeDeletes } from './bookmark-health.js';
@@ -33,9 +33,10 @@ export function projectTabsForHost(tabs) {
 }
 
 // match/additive only touch bookmarks that aren't in a folder (directly under a
-// root); full considers every bookmark.
-export function selectOrganizeCandidates(bookmarks, mode) {
-  return mode === 'full' ? bookmarks.slice() : bookmarks.filter(isUnfiled);
+// root); full considers every bookmark. `rootIds` is the live set from
+// collectTree (varies by browser); defaults to Chrome's ids.
+export function selectOrganizeCandidates(bookmarks, mode, rootIds) {
+  return mode === 'full' ? bookmarks.slice() : bookmarks.filter((b) => isUnfiled(b, rootIds));
 }
 
 export function projectBookmarksForHost(bookmarks) {
@@ -45,7 +46,7 @@ export function projectBookmarksForHost(bookmarks) {
 // Proposes removeFolder items for leaf folders (no subfolders) that are empty now
 // or would be emptied by `moves`. Skips roots. Bar/whitelist protection and the
 // executor's own empty-guard are applied downstream (one pass, no cascade).
-export function findEmptyFolders(folders, bookmarks, moves = []) {
+export function findEmptyFolders(folders, bookmarks, moves = [], rootIds = ROOT_IDS) {
   const lost = new Map(), gained = new Map(), subfolders = new Map(), bmCount = new Map();
   for (const m of moves) {
     const d = m.data || {};
@@ -56,7 +57,7 @@ export function findEmptyFolders(folders, bookmarks, moves = []) {
   for (const b of bookmarks) bmCount.set(b.parentId, (bmCount.get(b.parentId) || 0) + 1);
   const items = [];
   for (const f of folders) {
-    if (ROOT_IDS.has(f.id)) continue;
+    if (rootIds.has(f.id)) continue;
     if ((subfolders.get(f.id) || 0) > 0) continue;
     const remaining = (bmCount.get(f.id) || 0) - (lost.get(f.id) || 0) + (gained.get(f.id) || 0);
     if (remaining <= 0) items.push({ itemId: `rf-${f.id}`, action: 'removeFolder', status: 'pending', reason: 'Empty folder', data: { folderId: f.id, parentId: f.parentId, index: f.index, title: f.title } });
@@ -74,6 +75,7 @@ export async function buildPlan(deps) {
   const PHASES = 6;
   let done = 0;
   let folders = []; // folder inventory captured by the organize phase, for finalize protection
+  let rootIds, barId; // real root ids/bar id from the live tree (browser-specific)
   const step = (label) => { onProgress(label, done++, PHASES); };
 
   const rawTabs = await chromeApi.tabs.query({});
@@ -164,28 +166,44 @@ export async function buildPlan(deps) {
     try {
       const tree = await collectTree(chromeApi);
       folders = tree.folders; // captured for finalize protection (bar/whitelist)
+      rootIds = tree.rootIds; barId = tree.barId; // real roots (Edge != Chrome ids)
       const mode = settings.organizeMode || 'additive';
-      const candidates = selectOrganizeCandidates(tree.bookmarks, mode);
+      const candidates = selectOrganizeCandidates(tree.bookmarks, mode, tree.rootIds);
       let moveItems = [];
-      if (candidates.length) {
+      if (!candidates.length) {
+        console.info(`[organizer] organize: 0 candidates (mode=${mode}, ${tree.bookmarks.length} bookmarks total, roots=[${[...tree.rootIds].join(',')}])`);
+        onWarning(`Nothing to sort: no loose bookmarks were found${settings.protectBookmarkBar !== false ? ' outside the protected bookmarks bar' : ''}. "Match"/"Add folders" only move bookmarks that aren't already in a folder — try "Fully reorganize" in Settings to include filed ones.`);
+      } else {
         const byId = new Map(candidates.map((b) => [b.id, b]));
-        const folderInv = folders.map((fo) => ({ id: fo.id, path: (fo.path || []).join('/') }));
+        const folderPathById = new Map(folders.map((fo) => [fo.id, (fo.path || []).join('/')]));
+        const folderInv = folders.map((fo) => ({ id: fo.id, path: folderPathById.get(fo.id) }));
         const r = await nativeClient.request({ type: 'organize', task: 'organize-bookmarks', adapter, payload: { mode, folders: folderInv, bookmarks: projectBookmarksForHost(candidates), rules } });
-        moveItems = mapOrganizeResult(r.moves, byId, mode);
+        const rawMoves = Array.isArray(r && r.moves) ? r.moves : [];
+        moveItems = mapOrganizeResult(rawMoves, byId, mode, tree.otherId, folderPathById);
+        // How many survive the bar/whitelist protections (what actually reaches the plan)?
+        const kept = applyFolderProtection(moveItems, { protectBookmarkBar: settings.protectBookmarkBar !== false, protectedFolders: settings.protectedFolders || [], folders, rootIds: tree.rootIds, barId: tree.barId });
+        console.info(`[organizer] organize: ${candidates.length} candidate(s), mode=${mode} → model ${rawMoves.length} move(s) → ${moveItems.length} mapped → ${kept.length} after protections`);
         items.push(...moveItems);
+        if (!moveItems.length) {
+          onWarning(rawMoves.length
+            ? `The AI returned ${rawMoves.length} move(s) for ${candidates.length} bookmarks, but none matched (its ids didn't line up — common with very large collections). Sorting fewer at a time should help.`
+            : `The AI reviewed ${candidates.length} loose bookmark(s) and proposed no moves. Large collections can overwhelm it; try again or with fewer bookmarks.`);
+        } else if (!kept.length) {
+          onWarning(`All ${moveItems.length} proposed move(s) were skipped by your protections${settings.protectBookmarkBar ? ' — your folders are likely inside the Bookmarks Bar, which is protected. Untick "Never touch the Bookmarks Bar" to file into them.' : '.'}`);
+        }
       }
-      if (settings.removeEmptyFolders) items.push(...findEmptyFolders(folders, tree.bookmarks, moveItems));
+      if (settings.removeEmptyFolders) items.push(...findEmptyFolders(folders, tree.bookmarks, moveItems, tree.rootIds));
     } catch (e) {
       console.warn('[organizer] organize-bookmarks phase failed:', e);
-      // An out-of-date native host doesn't know this task and rejects it — tell
-      // the user to update the helper instead of silently showing "nothing to do".
-      if (/unknown task/i.test(String((e && e.message) || e))) {
-        onWarning('Your helper (native host) is out of date and can’t sort bookmarks yet. Update it — run `browser-organizer-host` in a terminal — then reload the extension.');
-      }
+      // Never fall through to a silent "looks tidy": surface the failure. Call out
+      // the out-of-date-host case specifically (it rejects the task as unknown).
+      onWarning(/unknown task/i.test(String(e?.message || e))
+        ? 'Your helper (native host) is out of date and can’t sort bookmarks yet. Update it — run `browser-organizer-host` in a terminal — then reload the extension.'
+        : 'Sorting bookmarks failed (it may have timed out on a large collection). See the service-worker console for details, and try again with fewer bookmarks.');
     }
   }
 
-  return finalizePlan(items, settings, folders);
+  return finalizePlan(items, settings, folders, rootIds, barId);
 }
 
 // Single tail for every buildPlan return path (including cancellation): dedupe
@@ -216,8 +234,14 @@ export function applyWhitelist(items, whitelist = []) {
 // model proposed: never move out of / into the Bookmarks Bar (when protected),
 // never touch a whitelisted folder's subtree, never remove a root. Only the
 // organize actions are affected; `folders` is the inventory from collectTree.
+// First root that isn't the bar — the default place new folders are created.
+function firstOtherRoot(rootIds, barId) {
+  for (const id of rootIds) if (id !== barId) return id;
+  return barId;
+}
+
 export function applyFolderProtection(items, opts = {}) {
-  const { protectBookmarkBar = true, protectedFolders = [], folders = [] } = opts;
+  const { protectBookmarkBar = true, protectedFolders = [], folders = [], rootIds = ROOT_IDS, barId = BAR_ID } = opts;
   const ORGANIZE = new Set(['moveBookmark', 'removeFolder']);
   if (!items.some((it) => ORGANIZE.has(it.action))) return items;
   const byId = new Map(folders.map((f) => [f.id, f]));
@@ -237,7 +261,7 @@ export function applyFolderProtection(items, opts = {}) {
   const inBar = (id) => {
     let cur = id, guard = 0;
     while (cur && guard++ < 100) {
-      if (cur === '1') return true;
+      if (cur === barId) return true;
       cur = byId.get(cur)?.parentId ?? null;
     }
     return false;
@@ -252,7 +276,7 @@ export function applyFolderProtection(items, opts = {}) {
     if (!ORGANIZE.has(it.action)) return true;
     const d = it.data || {};
     if (it.action === 'removeFolder') {
-      if (ROOT_IDS.has(d.folderId)) return false;
+      if (rootIds.has(d.folderId)) return false;
       return !blocked(d.folderId);
     }
     // moveBookmark
@@ -262,8 +286,8 @@ export function applyFolderProtection(items, opts = {}) {
     } else {
       // New-folder target: evaluate the *projected* destination path, so a
       // toRootId of the bar or a toFolderPath under a protected subtree can't
-      // slip past the protections (the executor creates under toRootId||'2').
-      const rootId = d.toRootId || '2';
+      // slip past the protections (the executor creates under toRootId).
+      const rootId = d.toRootId || firstOtherRoot(rootIds, barId);
       if (protectBookmarkBar && inBar(rootId)) return false;
       const rootPath = byId.get(rootId)?.path || [];
       if (pathProtected([...rootPath, ...(d.toFolderPath || [])])) return false;
@@ -272,10 +296,10 @@ export function applyFolderProtection(items, opts = {}) {
   });
 }
 
-export function finalizePlan(items, settings, folders = []) {
+export function finalizePlan(items, settings, folders = [], rootIds = ROOT_IDS, barId = BAR_ID) {
   const s = settings || {};
   let cleaned = applyWhitelist(dedupeTabActions(items).filter(validatePlanItem), s.whitelist || []);
-  cleaned = applyFolderProtection(cleaned, { protectBookmarkBar: s.protectBookmarkBar !== false, protectedFolders: s.protectedFolders || [], folders });
+  cleaned = applyFolderProtection(cleaned, { protectBookmarkBar: s.protectBookmarkBar !== false, protectedFolders: s.protectedFolders || [], folders, rootIds, barId });
   return applyIgnoreList(cleaned, s.ignore || []);
 }
 

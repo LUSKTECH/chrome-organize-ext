@@ -264,7 +264,21 @@ function buildItemNode(item, tpl) {
   check.checked = selection.has(item.itemId);
   check.addEventListener('change', () => { selection = toggleSelection(selection, item.itemId); });
   node.querySelector('.itemAction').textContent = item.data.groupName || item.data.title || item.data.url || '';
-  node.querySelector('.itemReason').textContent = item.reason || '';
+  const reasonEl = node.querySelector('.itemReason');
+  if (item.action === 'moveBookmark' && item.data.toLabel) {
+    // Show the destination as a chip ("Move to [Folder]"), full path on hover.
+    reasonEl.textContent = '';
+    const lead = document.createElement('span');
+    lead.className = 'moveLead';
+    lead.textContent = 'Move to ';
+    const chip = document.createElement('span');
+    chip.className = item.data.toNew ? 'destChip destChip--new' : 'destChip';
+    chip.textContent = item.data.toLabel;
+    chip.title = (item.data.toNew ? 'New folder: ' : '') + (item.data.toPath || item.data.toLabel);
+    reasonEl.append(lead, chip);
+  } else {
+    reasonEl.textContent = item.reason || '';
+  }
   node.querySelector('.itemUrl').textContent = item.data.url || (item.data.tabIds ? `${item.data.tabIds.length} tabs` : '');
   node.querySelector('.itemIgnore').addEventListener('click', () => ignoreItem(item));
   // Click-to-focus: only meaningful when the suggestion targets a live tab.

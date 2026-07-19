@@ -80,8 +80,9 @@ export function mapImportantResult(important, tabsById) {
 
 // Maps model "moves" to moveBookmark items. `bookmarksById` is keyed by string
 // bookmark id (the candidates sent to the model). match mode forbids new folders;
-// new folders are created under Other Bookmarks ('2') so the bar stays untouched.
-export function mapOrganizeResult(moves, bookmarksById, mode = 'additive') {
+// new folders are created under `otherId` (the real "Other bookmarks" root,
+// which differs between Chrome and Edge) so the bar stays untouched.
+export function mapOrganizeResult(moves, bookmarksById, mode = 'additive', otherId = '2', folderPathById = new Map()) {
   return (moves || [])
     .map((m) => {
       const b = bookmarksById.get(m.bookmarkId);
@@ -90,18 +91,27 @@ export function mapOrganizeResult(moves, bookmarksById, mode = 'additive') {
         itemId: `mv-${b.id}`,
         action: 'moveBookmark',
         status: 'pending',
-        reason: m.reason || 'Categorized',
         data: { bookmarkId: b.id, fromParentId: b.parentId, fromIndex: b.index, title: b.title, url: b.url },
       };
+      let path, isNew = false;
       if (m.targetFolderId) {
         if (m.targetFolderId === b.parentId) return null; // already there → no-op
         item.data.toParentId = m.targetFolderId;
+        path = folderPathById.get(m.targetFolderId) || 'folder';
       } else if (m.newFolderPath && m.newFolderPath.length && mode !== 'match') {
         item.data.toFolderPath = m.newFolderPath;
-        item.data.toRootId = '2';
+        item.data.toRootId = otherId;
+        path = m.newFolderPath.join('/');
+        isNew = true;
       } else {
         return null; // match mode + newFolderPath, or no usable destination
       }
+      // The panel shows the leaf folder as a chip (full path on hover); the model's
+      // free-text reason is dropped — the destination folder is the category.
+      item.data.toPath = path;
+      item.data.toLabel = path.split('/').filter(Boolean).pop() || path;
+      item.data.toNew = isNew;
+      item.reason = `Move to ${path}${isNew ? ' (new folder)' : ''}`; // concise text for exports/digest
       return item;
     })
     .filter(Boolean);

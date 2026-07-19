@@ -95,6 +95,33 @@ test('buildPlan warns to update the helper when the host rejects the organize ta
   assert.match(warnings[0], /out of date|update/i);
 });
 
+function organizeChromeApi() {
+  const stored = {};
+  return {
+    storage: { local: { async get(k) { return typeof k === 'string' ? { [k]: stored[k] } : { ...stored }; }, async set(o) { Object.assign(stored, o); } } },
+    tabs: { async query() { return []; } },
+    bookmarks: { async getTree() { return [{ id: '0', children: [{ id: '2', title: 'Other Bookmarks', parentId: '0', index: 0, children: [{ id: '9', title: 'Loose', url: 'https://x.com', parentId: '2', index: 0 }] }] }]; } },
+    history: { async getVisits() { return []; } },
+  };
+}
+const organizeSettings = { adapter: 'claude', enabledFeatures: { groupTabs: false, staleTabs: false, importantBookmarks: false, cleanBookmarks: false, dupeTabs: false, organizeBookmarks: true }, organizeMode: 'additive', staleTabDays: 14, staleBookmarkDays: 180, deadLinkBatchSize: 200 };
+
+test('buildPlan warns when the model returns no moves for loose bookmarks', async () => {
+  const nativeClient = { request: async (m) => (m.task === 'organize-bookmarks' ? { moves: [] } : { groups: [], stale: [], important: [] }) };
+  const warnings = [];
+  await buildPlan({ settings: organizeSettings, nativeClient, chromeApi: organizeChromeApi(), now: 1, onWarning: (w) => warnings.push(w) });
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /proposed no moves|no moves/i);
+});
+
+test('buildPlan warns when the model returns moves that match no bookmark', async () => {
+  const nativeClient = { request: async (m) => (m.task === 'organize-bookmarks' ? { moves: [{ bookmarkId: 'not-a-real-id', targetFolderId: '5' }] } : { groups: [], stale: [], important: [] }) };
+  const warnings = [];
+  const items = await buildPlan({ settings: organizeSettings, nativeClient, chromeApi: organizeChromeApi(), now: 1, onWarning: (w) => warnings.push(w) });
+  assert.equal(items.filter((i) => i.action === 'moveBookmark').length, 0);
+  assert.match(warnings[0], /none matched|didn't line up/i);
+});
+
 test('buildPlan runs the important-bookmarks phase', async () => {
   const stored = {};
   const chromeApi = {

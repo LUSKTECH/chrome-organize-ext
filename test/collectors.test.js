@@ -13,16 +13,34 @@ test('collectTree returns folders with path, childCount, and root flags', async 
     ] },
     { id: '2', title: 'Other Bookmarks', parentId: '0', index: 1, children: [] },
   ] }]; } } };
-  const { bookmarks, folders } = await collectTree(chromeApi);
+  const { bookmarks, folders, rootIds, barId, otherId } = await collectTree(chromeApi);
   const dev = folders.find((f) => f.id === '10');
   assert.deepEqual(dev.path, ['Bookmarks Bar', 'Dev']);
   assert.equal(dev.childCount, 1);
   assert.equal(folders.find((f) => f.id === '1').isRoot, true);
   assert.equal(folders.some((f) => f.id === '0'), false); // root '0' not emitted
   assert.equal(bookmarks.find((b) => b.id === '11').parentId, '1');
+  assert.deepEqual([...rootIds].sort(), ['1', '2']);
+  assert.equal(barId, '1');
+  assert.equal(otherId, '2');
   assert.equal(isUnfiled({ parentId: '1' }), true);
   assert.equal(isUnfiled({ parentId: '10' }), false);
   assert.ok(ROOT_IDS.has('2'));
+});
+
+test('collectTree derives Edge-style roots where Other favourites != id 2', async () => {
+  const chromeApi = { bookmarks: { async getTree() { return [{ id: '0', children: [
+    { id: '1', title: 'Favourites bar', parentId: '0', index: 0, children: [{ id: 'a', title: 'barloose', url: 'https://b.com', parentId: '1', index: 0 }] },
+    { id: '203', title: 'Other favourites', parentId: '0', index: 1, children: [{ id: 'c', title: 'otherloose', url: 'https://o.com', parentId: '203', index: 0 }] },
+    { id: '722', title: 'Workspaces', parentId: '0', index: 2, children: [] },
+  ] }]; } } };
+  const { bookmarks, rootIds, barId, otherId } = await collectTree(chromeApi);
+  assert.deepEqual([...rootIds].sort(), ['1', '203', '722']);
+  assert.equal(barId, '1');
+  assert.equal(otherId, '203'); // first non-bar root — where new folders go
+  const other = bookmarks.find((b) => b.id === 'c');
+  assert.equal(isUnfiled(other, rootIds), true);  // loose in Other favourites (203) counts as unfiled
+  assert.equal(isUnfiled(other), false);          // the old bug: default Chrome ids miss it
 });
 
 const DAY = 86400000;
