@@ -1,4 +1,4 @@
-import { resolveCommand, resolveArgs, hostEnv } from '../config.js';
+import { resolveCommand, resolveArgs, hostEnv, extraArgs } from '../config.js';
 import { runCli, cliVersion } from './run-cli.js';
 
 // Claude Code headless: pipe the prompt on stdin, read a JSON envelope on stdout.
@@ -14,7 +14,7 @@ export const claudeAdapter = {
   async run(prompt, opts = {}) {
     const out = await runCli({
       command: resolveCommand(),
-      args: resolveArgs(),
+      args: [...resolveArgs(opts.cli), ...extraArgs(opts)],
       prompt,
       usesStdin: true,
       env: hostEnv([]),

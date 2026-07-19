@@ -1,6 +1,25 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveCommand, resolveArgs, sanitizeOptions, sanitizeConfig } from '../native-host/config.js';
+import { resolveCommand, resolveArgs, sanitizeOptions, sanitizeConfig, sanitizeCli, extraArgs } from '../native-host/config.js';
+
+test('sanitizeCli keeps benign flags, drops dangerous sets, and reads toggles', () => {
+  assert.deepEqual(sanitizeCli({ extraArgs: '--model x --verbose' }).extraArgs, ['--model', 'x', '--verbose']);
+  assert.equal(sanitizeCli({ extraArgs: '--dangerously-skip-permissions' }).rejected, true);
+  assert.deepEqual(sanitizeCli({ extraArgs: '--sandbox danger' }).extraArgs, []); // whole set dropped
+  assert.deepEqual(sanitizeCli({ extraArgs: ['--mcp-config', 'x.json'] }).extraArgs, []);
+  const t = sanitizeCli({ loadMcpServers: true, loadPluginsSettings: false });
+  assert.equal(t.loadMcpServers, true);
+  assert.equal(t.loadPluginsSettings, false);
+});
+
+test('resolveArgs toggles MCP/settings flags; extraArgs reads opts.cli', () => {
+  assert.ok(resolveArgs().includes('--strict-mcp-config'));               // default: MCP off
+  assert.ok(resolveArgs().includes('--setting-sources'));                 // default: settings off
+  const on = resolveArgs({ loadMcpServers: true, loadPluginsSettings: true });
+  assert.ok(!on.includes('--strict-mcp-config') && !on.includes('--setting-sources'));
+  assert.deepEqual(extraArgs({ cli: { extraArgs: ['--x'] } }), ['--x']);
+  assert.deepEqual(extraArgs({}), []);
+});
 
 test('resolveCommand defaults to claude and honors env override', () => {
   const prev = process.env.BROWSER_ORGANIZER_CLI;

@@ -589,6 +589,16 @@ $('copyCmd').addEventListener('click', async () => {
 $('recheck').addEventListener('click', () => checkHealth());
 
 // Shows a caution note for lower-assurance adapters (e.g. Copilot).
+let advancedExtraArgs = {}; // per-adapter extra CLI flags, loaded from settings
+
+// Point the "extra CLI flags" field at the currently-selected backend.
+function syncExtraArgsField(adapter) {
+  const form = $('settingsForm');
+  form.extraArgs.value = advancedExtraArgs[adapter] || '';
+  const label = document.getElementById('extraArgsAdapter');
+  if (label) label.textContent = (form.adapter.selectedOptions[0] && form.adapter.selectedOptions[0].text) || adapter;
+}
+
 function updateAdapterNote(value) {
   const note = adapterNote(value);
   const el = $('adapterNote');
@@ -601,6 +611,7 @@ $('openaiKeyShow').addEventListener('change', (e) => { $('openaiApiKey').type = 
 // banner reflects the chosen backend without also having to click "Save settings".
 $('settingsForm').adapter.addEventListener('change', async (e) => {
   updateAdapterNote(e.target.value);
+  syncExtraArgsField(e.target.value); // show this backend's extra flags
   setStatus(`Switching to ${e.target.selectedOptions[0].text}…`);
   await setSettings({ adapter: e.target.value });
   await checkHealth();
@@ -635,6 +646,11 @@ async function loadSettings() {
   form.undoRetentionDays.value = s.undoRetentionDays;
   form.autoMode.checked = s.automationMode === 'auto';
   form.whitelist.value = (s.whitelist || []).join('\n');
+  form.debugLogging.checked = !!s.debugLogging;
+  form.loadMcpServers.checked = !!(s.advancedCli && s.advancedCli.loadMcpServers);
+  form.loadPluginsSettings.checked = !!(s.advancedCli && s.advancedCli.loadPluginsSettings);
+  advancedExtraArgs = { ...((s.advancedCli && s.advancedCli.extraArgs) || {}) };
+  syncExtraArgsField(s.adapter);
 }
 
 $('settingsForm').addEventListener('submit', async (e) => {
@@ -670,7 +686,14 @@ $('settingsForm').addEventListener('submit', async (e) => {
     undoRetentionDays: Number(form.undoRetentionDays.value),
     automationMode: form.autoMode.checked ? 'auto' : 'review',
     whitelist: form.whitelist.value.split('\n').map((s) => s.trim()).filter(Boolean),
+    debugLogging: form.debugLogging.checked,
+    advancedCli: {
+      loadMcpServers: form.loadMcpServers.checked,
+      loadPluginsSettings: form.loadPluginsSettings.checked,
+      extraArgs: { ...advancedExtraArgs, [form.adapter.value]: form.extraArgs.value.trim() },
+    },
   });
+  advancedExtraArgs = { ...advancedExtraArgs, [form.adapter.value]: form.extraArgs.value.trim() };
   // Re-check health so the banner reflects the (possibly changed) AI backend —
   // it queries the newly-saved adapter and updates connected/version or the
   // onboarding card + disables Analyze if the new backend isn't reachable.

@@ -17,3 +17,15 @@ test('adapter runs in a private per-run dir under tmp, not tmp root, and disable
   assert.deepEqual(seen.args, resolveArgs());
   assert.ok(seen.args.includes('--allowedTools'));
 });
+
+test('claude adapter honors the MCP toggle and appends sanitized extra flags', async () => {
+  let seen;
+  const spawnFn = (command, args) => {
+    seen = args;
+    return { stdout: { on() {} }, stderr: { on() {} }, on(ev, cb) { if (ev === 'close') setTimeout(() => cb(0), 0); }, stdin: { write() {}, end() {} }, kill() {} };
+  };
+  await claudeAdapter.run('hi', { spawnFn, cli: { loadMcpServers: true, loadPluginsSettings: false, extraArgs: ['--model', 'x'] } });
+  assert.ok(!seen.includes('--strict-mcp-config'), 'MCP toggle on → strict flag dropped');
+  assert.ok(seen.includes('--setting-sources'), 'plugins toggle off → no-settings flag stays');
+  assert.deepEqual(seen.slice(-2), ['--model', 'x'], 'extra flags appended last');
+});

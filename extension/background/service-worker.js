@@ -14,12 +14,25 @@ import { getSecret } from '../lib/secret-store.js';
 // Creates the native client, attaching the openai adapter's UI-entered config
 // (key decrypted from secret-store here, base/model from settings) so the host
 // resolves them per-request. Other adapters send no config.
+// Advanced-settings CLI controls for the active adapter, sent with every request.
+// The host re-validates (sanitizeCli) — this is convenience, not a trust boundary.
+function cliExtrasFor(settings) {
+  const adv = settings.advancedCli || {};
+  return {
+    cli: {
+      loadMcpServers: adv.loadMcpServers === true,
+      loadPluginsSettings: adv.loadPluginsSettings === true,
+      extraArgs: (adv.extraArgs && adv.extraArgs[settings.adapter]) || '',
+    },
+  };
+}
+
 async function makeClient(settings) {
+  const extras = cliExtrasFor(settings);
   if (settings.adapter === 'openai') {
-    const config = { apiKey: await getSecret('openaiApiKey'), baseUrl: settings.openaiBaseUrl || '', model: settings.openaiModel || '' };
-    return createNativeClient({ requestExtras: { config } });
+    extras.config = { apiKey: await getSecret('openaiApiKey'), baseUrl: settings.openaiBaseUrl || '', model: settings.openaiModel || '' };
   }
-  return createNativeClient();
+  return createNativeClient({ requestExtras: extras });
 }
 
 const ALARM_SCAN = 'organizer-scan';
@@ -128,6 +141,7 @@ function runScan(deps = {}) {
     const warnings = [];
     try {
       const items = await buildPlan({ settings, nativeClient, onProgress, shouldCancel, onWarning: (w) => warnings.push(w), features: deps.features, windowId: deps.windowId ?? null });
+      if (settings.debugLogging) console.info('[organizer] scan produced', items.length, 'item(s),', warnings.length, 'warning(s)');
       const { autoApply, needsReview } = partitionForApply(items, settings);
       await withLock('currentPlan', () => chrome.storage.local.set({ currentPlan: needsReview }));
       if (autoApply.length) {

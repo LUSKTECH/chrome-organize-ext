@@ -417,6 +417,11 @@ kbd { font-family: var(--mono); font-size: 10px; background: var(--surface-2); b
 
 #settingsForm { display: grid; gap: 11px; padding: 4px 12px 14px; }
 #settingsForm label { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text); }
+.advanced { border-top: 1px solid var(--border); padding-top: 8px; margin-top: 4px; }
+.advanced > summary { cursor: pointer; font-size: 12px; font-weight: 600; color: var(--text-muted); list-style: revert; }
+.advanced[open] > summary { margin-bottom: 8px; }
+.advancedWarn { font-size: 11px; line-height: 1.4; color: var(--warn-soft-text); background: var(--warn-soft); border: 1px solid color-mix(in srgb, var(--warn-soft-text) 25%, transparent); border-radius: var(--r-sm); padding: 6px 8px; margin: 0 0 8px; }
+.advanced textarea { width: 100%; font-family: var(--mono); font-size: 11px; }
 #settingsForm input[type="number"] { width: 68px; margin: 0 4px; }
 #settingsForm > label:has(input[type="number"]) { flex-wrap: wrap; }
 #settingsForm button[type="submit"] { justify-self: start; margin-top: 2px; }

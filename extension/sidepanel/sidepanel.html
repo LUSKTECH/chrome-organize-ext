@@ -152,6 +152,17 @@
         <label>Protected domains (never close/delete) — one per line
           <textarea name="whitelist" rows="3" placeholder="github.com&#10;mail.google.com"></textarea>
         </label>
+        <details class="advanced">
+          <summary>Advanced</summary>
+          <p class="advancedWarn">⚠ These change how the local AI CLI is launched. Wrong values can break scans or send more data to your AI backend. Dangerous flags (tool/file/permission grants) are ignored for safety.</p>
+          <label><input type="checkbox" name="debugLogging" /> Debug logging (verbose console output)</label>
+          <label><input type="checkbox" name="loadMcpServers" /> Claude: load MCP servers (off = faster, no side effects)</label>
+          <label><input type="checkbox" name="loadPluginsSettings" /> Claude: load plugins &amp; settings</label>
+          <label>Extra CLI flags for <strong id="extraArgsAdapter">the selected backend</strong>
+            <textarea name="extraArgs" rows="2" spellcheck="false" placeholder="--model claude-3-5-sonnet"></textarea>
+            <span class="fieldHint">Space-separated. Applies only to the backend selected above; other backends keep their own.</span>
+          </label>
+        </details>
         <button type="submit">Save settings</button>
       </form>
     </details>

@@ -10,7 +10,7 @@
 // ANTIGRAVITY_API_KEY — never an inline key.
 
 import { runCli, cliVersion } from './run-cli.js';
-import { hostEnv, overrideArgs } from '../config.js';
+import { hostEnv, overrideArgs, extraArgs } from '../config.js';
 
 const ENV_VAR = 'BROWSER_ORGANIZER_ANTIGRAVITY_CMD';
 const ARGS_VAR = 'BROWSER_ORGANIZER_ANTIGRAVITY_ARGS';
@@ -27,7 +27,7 @@ export const antigravityAdapter = {
   async run(prompt, opts = {}) {
     const out = await runCli({
       command: resolveCommand(),
-      args: [...overrideArgs(ARGS_VAR, DEFAULT_ARGS), prompt],
+      args: [...overrideArgs(ARGS_VAR, DEFAULT_ARGS), ...extraArgs(opts), prompt],
       usesStdin: false,
       env: hostEnv(AUTH_ENV),
       timeoutMs: opts.timeoutMs,

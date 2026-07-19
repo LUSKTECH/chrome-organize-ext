@@ -13,6 +13,9 @@ test('getSettings returns defaults when nothing stored', async () => {
   // organize feature defaults: off, additive, bar protected
   assert.equal(s.enabledFeatures.organizeBookmarks, false);
   assert.equal(s.organizeMode, 'additive');
+  assert.equal(s.debugLogging, false);
+  assert.equal(s.advancedCli.loadMcpServers, false);
+  assert.deepEqual(s.advancedCli.extraArgs, {});
   assert.equal(s.protectBookmarkBar, true);
   assert.deepEqual(s.protectedFolders, []);
   assert.equal(s.removeEmptyFolders, false);

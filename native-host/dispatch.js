@@ -1,7 +1,7 @@
 import { getAdapter as defaultGetAdapter } from './adapters/registry.js';
 import { buildGroupPrompt, buildStalePrompt, buildImportantPrompt, buildCommandPrompt, buildOrganizePrompt } from './prompts.js';
 import { parseGroupResult, parseStaleResult, parseImportantResult, parseCommandResult, parseOrganizeResult } from './parse.js';
-import { sanitizeOptions, sanitizeConfig } from './config.js';
+import { sanitizeOptions, sanitizeConfig, sanitizeCli } from './config.js';
 import { hostVersion } from './version.js';
 
 export async function handle(msg, deps = {}) {
@@ -13,6 +13,9 @@ export async function handle(msg, deps = {}) {
   const opts = sanitizeOptions(msg.cliOptions);
   const cfg = sanitizeConfig(msg.config);
   if (cfg) opts.config = cfg;
+  // Advanced-settings CLI controls (MCP/plugins toggles + guarded extra flags).
+  // sanitizeCli enforces the denylist host-side; the adapters apply the result.
+  opts.cli = sanitizeCli(msg.cli);
 
   if (msg.type === 'health') {
     try {

@@ -11,7 +11,7 @@
 // capable instruct model for best results.
 
 import { runCli, cliVersion } from './run-cli.js';
-import { hostEnv } from '../config.js';
+import { hostEnv, extraArgs } from '../config.js';
 
 const ENV_VAR = 'BROWSER_ORGANIZER_OLLAMA_CMD';
 const MODEL_VAR = 'BROWSER_ORGANIZER_OLLAMA_MODEL';
@@ -31,7 +31,7 @@ export const ollamaAdapter = {
   async run(prompt, opts = {}) {
     const out = await runCli({
       command: resolveCommand(),
-      args: ['run', resolveModel()],
+      args: ['run', resolveModel(), ...extraArgs(opts)],
       prompt,
       usesStdin: true,
       env: hostEnv(PASS_ENV),

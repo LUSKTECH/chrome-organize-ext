@@ -18,6 +18,12 @@ export const DEFAULTS = {
   scanIntervalMinutes: 720,           // auto-run cadence (12h)
   openaiBaseUrl: '',                   // OpenAI-compatible endpoint (blank = host default). Key is in secret-store, not here.
   openaiModel: '',                     // OpenAI-compatible model (blank = host default)
+  debugLogging: false,                 // verbose [organizer] logs in the service-worker console
+  advancedCli: {                       // Advanced settings — power-user CLI control (see native-host/config.sanitizeCli)
+    loadMcpServers: false,             // Claude: false → --strict-mcp-config (no MCP servers)
+    loadPluginsSettings: false,        // Claude: false → --setting-sources '' (no on-disk settings/plugins/hooks)
+    extraArgs: {},                     // { <adapter>: "extra flags" } — host validates against a denylist
+  },
 };
 
 // `ignore` and `decisions` grow unbounded with use, so they live in storage.local
@@ -49,6 +55,7 @@ export async function getSettings() {
     ignore,
     decisions,
     enabledFeatures: { ...DEFAULTS.enabledFeatures, ...(settings.enabledFeatures || {}) },
+    advancedCli: { ...DEFAULTS.advancedCli, ...(settings.advancedCli || {}), extraArgs: { ...(settings.advancedCli && settings.advancedCli.extraArgs) } },
   };
 }
 
@@ -58,6 +65,7 @@ export async function setSettings(patch) {
   if (patch.decisions !== undefined) await chrome.storage.local.set({ decisions: capDecisions(patch.decisions) });
   const next = { ...current, ...patch };
   if (patch.enabledFeatures) next.enabledFeatures = { ...current.enabledFeatures, ...patch.enabledFeatures };
+  if (patch.advancedCli) next.advancedCli = { ...current.advancedCli, ...patch.advancedCli };
   // Keep the two unbounded fields out of the synced item.
   const { ignore, decisions, ...syncable } = next;
   await chrome.storage.sync.set({ settings: syncable });

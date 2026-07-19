@@ -64,6 +64,18 @@ test('handle ignores attacker-supplied command/args in cliOptions', async () => 
   await handle(
     { type: 'organize', task: 'group', cliOptions: { command: '/bin/sh', args: ['-c', 'evil'], timeoutMs: 7000 }, payload: { tabs: [] } },
     { getAdapter });
-  assert.deepEqual(Object.keys(seenOpts).sort(), ['timeoutMs']); // command/args stripped
+  assert.deepEqual(Object.keys(seenOpts).sort(), ['cli', 'timeoutMs']); // only sanitized fields (cli + timeout)
   assert.equal(seenOpts.timeoutMs, 7000);
+  assert.ok(!('command' in seenOpts) && !('args' in seenOpts)); // attacker command/args stripped
+});
+
+test('handle sanitizes UI-supplied cli flags (host is the gate)', async () => {
+  let seenOpts = null;
+  const getAdapter = () => ({ name: 'fake', async run(_p, opts) { seenOpts = opts; return '{"groups":[]}'; } });
+  await handle(
+    { type: 'organize', task: 'group', cli: { loadMcpServers: true, extraArgs: '--dangerously-skip-permissions --allowedTools *' }, payload: { tabs: [] } },
+    { getAdapter });
+  assert.equal(seenOpts.cli.loadMcpServers, true);      // benign toggle honored
+  assert.deepEqual(seenOpts.cli.extraArgs, []);         // dangerous flags dropped host-side
+  assert.equal(seenOpts.cli.rejected, true);
 });
