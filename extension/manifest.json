@@ -22,7 +22,7 @@
     "nativeMessaging",
     "notifications"
   ],
-  "optional_host_permissions": ["<all_urls>"],
+  "optional_host_permissions": ["<all_urls>", "https://registry.npmjs.org/*"],
   "background": {
     "service_worker": "background/service-worker.js",
     "type": "module"

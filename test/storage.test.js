@@ -15,6 +15,7 @@ test('getSettings returns defaults when nothing stored', async () => {
   assert.equal(s.organizeMode, 'additive');
   assert.equal(s.debugLogging, false);
   assert.equal(s.advancedCli.loadMcpServers, false);
+  assert.equal(s.advancedCli.checkHostUpdates, false); // opt-in, off by default
   assert.deepEqual(s.advancedCli.extraArgs, {});
   assert.equal(s.protectBookmarkBar, true);
   assert.deepEqual(s.protectedFolders, []);

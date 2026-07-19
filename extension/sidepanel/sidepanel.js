@@ -6,7 +6,7 @@ import {
   excludeMember, renameGroup, recolorGroup, healthMessage, progressLabel, groupUndoByRun, toMarkdown, filterTabs,
   describeIgnoreKey, installCommand, moveMember,
   allItemIds, filterPlan, needsBulkConfirm, destructiveCount, adapterNote, formatElapsed,
-  groupByStatus, statusLabel,
+  groupByStatus, statusLabel, semverLt,
 } from './viewmodel.js';
 
 import { TAB_GROUP_COLORS as GROUP_COLORS } from '../lib/colors.js';
@@ -576,9 +576,11 @@ $('showUndo').addEventListener('click', async () => {
   };
 });
 
+let lastHostVersion = null; // installed bridge version from the last health poll (for the opt-in npm check)
+
 async function checkHealth() {
   const res = await send({ cmd: 'health' });
-  const { ok, text } = healthMessage(res && res.health, chrome.runtime.id);
+  const { ok, text, update } = healthMessage(res && res.health, chrome.runtime.id);
   const el = $('health');
   el.style.whiteSpace = 'pre-line'; // render the multi-line guidance
   el.textContent = text;
@@ -593,7 +595,34 @@ async function checkHealth() {
   // First-run onboarding: show the connect card until the CLI is reachable.
   $('onboarding').hidden = ok;
   if (!ok) $('installCmd').textContent = installCommand(chrome.runtime.id);
+  lastHostVersion = (res && res.health && res.health.hostVersion) || null;
+  // Update nudge: the baked-in MIN_HOST_VERSION check (offline) always wins; if
+  // it's quiet, the opt-in npm check may still surface a newer published build.
+  const upd = $('hostUpdate');
+  if (update) { upd.textContent = update; upd.hidden = false; }
+  else { upd.hidden = true; upd.textContent = ''; if (ok) maybeCheckLatestHost(); }
   return ok;
+}
+
+// Opt-in, off by default: ask npm whether a newer host bridge exists than the
+// one installed. A network request, so it only runs when the user enabled the
+// toggle AND granted the registry.npmjs.org permission. Failures are silent.
+async function maybeCheckLatestHost() {
+  try {
+    if (!lastHostVersion || lastHostVersion === 'unknown') return;
+    const s = await getSettings();
+    if (!s.advancedCli || !s.advancedCli.checkHostUpdates) return;
+    const granted = await chrome.permissions.contains({ origins: ['https://registry.npmjs.org/*'] });
+    if (!granted) return;
+    const r = await fetch('https://registry.npmjs.org/@lusktech/browser-organizer-host/latest', { cache: 'no-store' });
+    if (!r.ok) return;
+    const latest = (await r.json()).version;
+    if (latest && semverLt(lastHostVersion, latest)) {
+      const upd = $('hostUpdate');
+      upd.textContent = `Helper update available: v${latest} (you have v${lastHostVersion}). Update it: run  npx @lusktech/browser-organizer-host@latest  then reload the extension.`;
+      upd.hidden = false;
+    }
+  } catch { /* offline or registry unreachable — no nudge */ }
 }
 
 $('copyCmd').addEventListener('click', async () => {
@@ -661,6 +690,7 @@ async function loadSettings() {
   form.autoMode.checked = s.automationMode === 'auto';
   form.whitelist.value = (s.whitelist || []).join('\n');
   form.debugLogging.checked = !!s.debugLogging;
+  form.checkHostUpdates.checked = !!(s.advancedCli && s.advancedCli.checkHostUpdates);
   form.loadMcpServers.checked = !!(s.advancedCli && s.advancedCli.loadMcpServers);
   form.loadPluginsSettings.checked = !!(s.advancedCli && s.advancedCli.loadPluginsSettings);
   advancedExtraArgs = { ...((s.advancedCli && s.advancedCli.extraArgs) || {}) };
@@ -672,6 +702,11 @@ $('settingsForm').addEventListener('submit', async (e) => {
   const form = e.target;
   if (form.deadLinkScan.checked) {
     await chrome.permissions.request({ origins: ['<all_urls>'] });
+  }
+  // The npm update check is a network call, so ask for its (narrow) host
+  // permission the moment the user opts in — declining just leaves it inert.
+  if (form.checkHostUpdates.checked) {
+    await chrome.permissions.request({ origins: ['https://registry.npmjs.org/*'] });
   }
   // Persist the API key (encrypted, device-local) only if the user typed one;
   // an empty field means "keep the saved key". Never round-trips the stored key.
@@ -704,6 +739,7 @@ $('settingsForm').addEventListener('submit', async (e) => {
     advancedCli: {
       loadMcpServers: form.loadMcpServers.checked,
       loadPluginsSettings: form.loadPluginsSettings.checked,
+      checkHostUpdates: form.checkHostUpdates.checked,
       extraArgs: { ...advancedExtraArgs, [form.adapter.value]: form.extraArgs.value.trim() },
     },
   });

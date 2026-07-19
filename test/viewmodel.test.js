@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { summarize, groupByAction, toggleSelection, selectedItems, actionLabel, excludeMember, renameGroup, recolorGroup, healthMessage, progressLabel, groupUndoByRun, digestText, toMarkdown, allItemIds, filterPlan, destructiveCount, needsBulkConfirm, adapterNote, formatElapsed } from '../extension/sidepanel/viewmodel.js';
+import { summarize, groupByAction, toggleSelection, selectedItems, actionLabel, excludeMember, renameGroup, recolorGroup, healthMessage, progressLabel, groupUndoByRun, digestText, toMarkdown, allItemIds, filterPlan, destructiveCount, needsBulkConfirm, adapterNote, formatElapsed, semverLt, MIN_HOST_VERSION } from '../extension/sidepanel/viewmodel.js';
 
 const items = [
   { itemId: 'a', action: 'closeTab' },
@@ -159,7 +159,32 @@ test('healthMessage reports connected vs not', () => {
 });
 
 test('healthMessage appends the host bridge version when present', () => {
-  assert.deepEqual(healthMessage({ ready: true, version: '2.1.0', hostVersion: '0.1.3' }), { ok: true, text: 'Claude CLI connected (2.1.0) · bridge v0.1.3' });
+  // Use a current host so the update nudge stays quiet and only the suffix shows.
+  assert.deepEqual(healthMessage({ ready: true, version: '2.1.0', hostVersion: MIN_HOST_VERSION }), { ok: true, text: `Claude CLI connected (2.1.0) · bridge v${MIN_HOST_VERSION}` });
+});
+
+test('semverLt compares versions numerically, ignoring prerelease suffixes', () => {
+  assert.equal(semverLt('0.1.3', '0.1.4'), true);
+  assert.equal(semverLt('0.1.4', '0.1.4'), false);
+  assert.equal(semverLt('0.2.0', '0.1.9'), false);
+  assert.equal(semverLt('0.1.9', '0.2.0'), true);
+  assert.equal(semverLt('1.0.0', '0.9.9'), false);
+  assert.equal(semverLt('0.1.4-alpha.1', '0.1.4'), false); // prerelease stripped → equal, not less
+  assert.equal(semverLt('0.1', '0.1.1'), true);            // missing patch = 0
+});
+
+test('healthMessage nudges an update when the installed host is below MIN_HOST_VERSION', () => {
+  const m = healthMessage({ ready: true, version: '2.1.0', hostVersion: '0.1.1' });
+  assert.equal(m.ok, true); // still connected — the old host works, it's just stale
+  assert.match(m.update, /out of date/i);
+  assert.ok(m.update.includes('0.1.1'));           // reports the installed version
+  assert.ok(m.update.includes(MIN_HOST_VERSION));  // and the version it needs
+});
+
+test('healthMessage: no update field for a current or unknown host', () => {
+  assert.equal('update' in healthMessage({ ready: true, version: '2.1.0', hostVersion: MIN_HOST_VERSION }), false);
+  assert.equal('update' in healthMessage({ ready: true, version: '2.1.0', hostVersion: 'unknown' }), false);
+  assert.equal('update' in healthMessage({ ready: true, version: '2.1.0' }), false);
 });
 
 test('healthMessage omits the bridge suffix when the host version is unknown', () => {

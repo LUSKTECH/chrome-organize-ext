@@ -150,12 +150,36 @@ const ADAPTER_CMDS = { claude: 'claude', antigravity: 'agy', kiro: 'kiro-cli', c
 // fix-it guidance is "set the env key", not "install/sign-in to a CLI".
 const API_ADAPTERS = new Set(['openai']);
 
+// The host version this extension build needs. Bumped whenever the extension
+// starts relying on a newer host; the panel nudges an update when the installed
+// bridge is older. No network — this is a compatibility contract, not a "latest"
+// lookup (that's the opt-in checkHostUpdates path).
+export const MIN_HOST_VERSION = '0.1.5';
+
+// true if semver a < b (ignores any prerelease suffix; missing parts = 0).
+export function semverLt(a, b) {
+  const core = (v) => String(v || '0').split('-')[0].split('.').map((n) => parseInt(n, 10) || 0);
+  const x = core(a), y = core(b);
+  for (let i = 0; i < 3; i++) {
+    if ((x[i] || 0) < (y[i] || 0)) return true;
+    if ((x[i] || 0) > (y[i] || 0)) return false;
+  }
+  return false;
+}
+
 export function healthMessage(health, extensionId = '<your-extension-id>') {
   const key = health && health.adapter;
   const label = ADAPTER_LABELS[key] || 'Claude CLI';
   const cmd = ADAPTER_CMDS[key] || 'claude';
   const bridge = health && health.hostVersion && health.hostVersion !== 'unknown' ? ` · bridge v${health.hostVersion}` : '';
-  if (health && health.ready) return { ok: true, text: `${label} connected (${health.version || 'ok'})${bridge}` };
+  if (health && health.ready) {
+    const r = { ok: true, text: `${label} connected (${health.version || 'ok'})${bridge}` };
+    // The installed helper is older than this extension needs — nudge an update.
+    if (health.hostVersion && health.hostVersion !== 'unknown' && semverLt(health.hostVersion, MIN_HOST_VERSION)) {
+      r.update = `Helper out of date (v${health.hostVersion}, needs v${MIN_HOST_VERSION}). Update it: run  npx @lusktech/browser-organizer-host@latest  then reload the extension.`;
+    }
+    return r;
+  }
   if (API_ADAPTERS.has(key)) {
     return {
       ok: false,

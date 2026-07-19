@@ -78,7 +78,7 @@ test('buildPlan executes the dead-link scan block when enabled and permitted', a
   assert.ok('deadCursor' in stored, 'dead-link scan block ran and advanced the cursor');
 });
 
-test('buildPlan warns to update the helper when the host rejects the organize task', async () => {
+test('buildPlan surfaces a failure warning (not silent "tidy") when the host rejects the organize task', async () => {
   const stored = {};
   const chromeApi = {
     storage: { local: { async get(k) { return typeof k === 'string' ? { [k]: stored[k] } : { ...stored }; }, async set(o) { Object.assign(stored, o); } } },
@@ -86,13 +86,15 @@ test('buildPlan warns to update the helper when the host rejects the organize ta
     bookmarks: { async getTree() { return [{ id: '0', children: [{ id: '2', title: 'Other Bookmarks', parentId: '0', index: 0, children: [{ id: '9', title: 'Loose', url: 'https://x.com', parentId: '2', index: 0 }] }] }]; } },
     history: { async getVisits() { return []; } },
   };
-  // An old host doesn't know the task and rejects it.
+  // An old host doesn't know the task and rejects it. The out-of-date-host case
+  // is now flagged proactively by the health banner (viewmodel.healthMessage's
+  // MIN_HOST_VERSION check), so this path just surfaces a generic failure.
   const nativeClient = { request: async (m) => { if (m.task === 'organize-bookmarks') throw new Error('Unknown task: organize-bookmarks'); return { groups: [], stale: [], important: [] }; } };
   const settings = { adapter: 'claude', enabledFeatures: { groupTabs: false, staleTabs: false, importantBookmarks: false, cleanBookmarks: false, dupeTabs: false, organizeBookmarks: true }, organizeMode: 'additive', staleTabDays: 14, staleBookmarkDays: 180, deadLinkBatchSize: 200 };
   const warnings = [];
   await buildPlan({ settings, nativeClient, chromeApi, now: 1, onWarning: (w) => warnings.push(w) });
   assert.equal(warnings.length, 1);
-  assert.match(warnings[0], /out of date|update/i);
+  assert.match(warnings[0], /failed/i);
 });
 
 function organizeChromeApi() {

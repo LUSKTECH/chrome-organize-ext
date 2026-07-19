@@ -184,6 +184,18 @@ input[type="checkbox"] { accent-color: var(--accent); width: 15px; height: 15px;
 #health.healthBad { background: var(--warn-soft); color: var(--warn-soft-text); border-color: color-mix(in srgb, var(--warn-soft-text) 30%, transparent); }
 #health:empty { display: none; }
 
+#hostUpdate {
+  font-size: 12px;
+  border-radius: var(--r);
+  padding: 9px 11px;
+  margin-bottom: 10px;
+  white-space: pre-line;
+  background: var(--warn-soft);
+  color: var(--warn-soft-text);
+  border: 1px solid color-mix(in srgb, var(--warn-soft-text) 30%, transparent);
+}
+#hostUpdate[hidden] { display: none; }
+
 /* ---------- Command box ---------- */
 .commandForm { display: grid; gap: 6px; margin-bottom: 14px; }
 .commandForm label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-faint); }

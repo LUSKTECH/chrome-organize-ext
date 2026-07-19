@@ -23,6 +23,7 @@ export const DEFAULTS = {
     loadMcpServers: false,             // Claude: false → --strict-mcp-config (no MCP servers)
     loadPluginsSettings: false,        // Claude: false → --setting-sources '' (no on-disk settings/plugins/hooks)
     extraArgs: {},                     // { <adapter>: "extra flags" } — host validates against a denylist
+    checkHostUpdates: false,           // opt-in: query npm for a newer host bridge (a network call)
   },
 };
 

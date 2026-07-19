@@ -36,6 +36,10 @@ ever sent to our servers — we operate none.
 - **optional_host_permissions `<all_urls>`**: Requested at runtime only if you enable
   dead-link scanning, to check whether bookmarked pages still load. Not granted at install.
   The extension never reads page contents — it only checks the HTTP status.
+- **optional_host_permissions `https://registry.npmjs.org/*`**: Requested at runtime only if
+  you enable "Check npm for a newer helper" under Advanced settings, to read the published
+  version of the helper package. Not granted at install; off by default. Only the version
+  number is read — no personal data is sent.
 
 ## Privacy
 Privacy policy URL: **https://lusk.dev/browser-organizer/privacy** (source: `docs/privacy.html`).

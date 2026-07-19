@@ -195,11 +195,11 @@ export async function buildPlan(deps) {
       if (settings.removeEmptyFolders) items.push(...findEmptyFolders(folders, tree.bookmarks, moveItems, tree.rootIds));
     } catch (e) {
       console.warn('[organizer] organize-bookmarks phase failed:', e);
-      // Never fall through to a silent "looks tidy": surface the failure. Call out
-      // the out-of-date-host case specifically (it rejects the task as unknown).
-      onWarning(/unknown task/i.test(String(e?.message || e))
-        ? 'Your helper (native host) is out of date and can’t sort bookmarks yet. Update it — run `browser-organizer-host` in a terminal — then reload the extension.'
-        : 'Sorting bookmarks failed (it may have timed out on a large collection). See the service-worker console for details, and try again with fewer bookmarks.');
+      // Never fall through to a silent "looks tidy": surface the failure. The
+      // out-of-date-host case is caught proactively by the health banner's
+      // MIN_HOST_VERSION check (see viewmodel.healthMessage), so this is just
+      // the generic runtime-failure path.
+      onWarning('Sorting bookmarks failed (it may have timed out on a large collection). See the service-worker console for details, and try again with fewer bookmarks.');
     }
   }
 
