@@ -17,6 +17,13 @@ test('resolveArgs returns headless json args and disables tools', () => {
   assert.ok(args.includes('--output-format') && args.includes('json'));
 });
 
+test('resolveArgs skips MCP servers and settings-driven plugins/hooks', () => {
+  const args = resolveArgs();
+  assert.ok(args.includes('--strict-mcp-config'));           // no MCP servers loaded
+  assert.equal(args[args.indexOf('--setting-sources') + 1], ''); // no on-disk settings
+  assert.ok(!args.includes('--bare')); // --bare would break the persisted claude.ai login
+});
+
 test('sanitizeOptions keeps only a bounded timeoutMs and drops everything else', () => {
   const s = sanitizeOptions({ timeoutMs: 5000, command: '/bin/sh', args: ['-c', 'rm -rf /'], env: { LD_PRELOAD: 'x' }, cwd: '/tmp' });
   assert.deepEqual(Object.keys(s).sort(), ['timeoutMs']);

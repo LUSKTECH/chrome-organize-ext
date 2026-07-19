@@ -11,7 +11,13 @@ export function resolveCommand() {
 }
 
 export function resolveArgs() {
-  return ['-p', '--output-format', 'json', '--allowedTools', ''];
+  // Headless JSON text-transform: no tools, and crucially skip loading the user's
+  // MCP servers and settings-driven plugins/hooks — they add startup latency and
+  // side effects and we never use them here.
+  //   --strict-mcp-config : only load MCP servers from --mcp-config (none given) → zero servers
+  //   --setting-sources '' : load no on-disk settings (skips settings-configured plugins + hooks)
+  // Both keep the persisted claude.ai login working (unlike --bare, which forces an API key).
+  return ['-p', '--output-format', 'json', '--allowedTools', '', '--strict-mcp-config', '--setting-sources', ''];
 }
 
 // A private, per-run working directory (mode 0700) — created by the adapter.
