@@ -23,6 +23,9 @@ export function resolveCommand() {
 
 export const kiroAdapter = {
   name: 'kiro',
+  // Advanced-settings flags the extension may add (config.sanitizeCli). Only model
+  // selection — nothing that can override this adapter's sandbox/safety flags.
+  allowedExtraFlags: { '--model': 'value' },
   async run(prompt, opts = {}) {
     const out = await runCli({
       command: resolveCommand(),

@@ -264,3 +264,19 @@ test('install() writes launcher + manifest (linux) and returns registry commands
     fs.rmSync(hostDir, { recursive: true, force: true });
   }
 });
+
+test('runCli caps stderr so a noisy CLI cannot exhaust host memory', async () => {
+  const big = 'e'.repeat(2 * 1024 * 1024); // 2 MB stderr in one chunk
+  const spawnFn = makeFakeSpawn(() => ({ stderr: big, code: 1 }));
+  await assert.rejects(
+    () => runCli({ command: 'x', args: [], spawnFn, maxStderr: 1024 }),
+    (err) => { assert.ok(err.message.length < 4096, `stderr should be capped, got ${err.message.length}`); return /CLI exited 1/.test(err.message); },
+  );
+});
+
+test('runCli spawns detached on POSIX (so the whole process tree can be killed)', async () => {
+  let seenOpts = null;
+  const spawnFn = makeFakeSpawn((_stdin, _cmd, _args, options) => { seenOpts = options; return { stdout: '{}' }; });
+  await runCli({ command: 'x', args: [], usesStdin: true, spawnFn });
+  assert.equal(seenOpts.detached, process.platform !== 'win32');
+});

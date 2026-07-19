@@ -26,7 +26,17 @@ const MAX_RESPONSE_BYTES = 5 * 1024 * 1024; // mirror the CLI adapters' output c
 
 // Config precedence: the UI-entered value (passed in the message, host-sanitized)
 // wins, then the host env var, then the built-in default. cfg is opts.config.
-export function resolveKey(cfg) { return (cfg && cfg.apiKey) || process.env[KEY_VAR] || ''; }
+//
+// SECURITY: the base URL can come from the (untrusted) message. NEVER pair a
+// message-supplied base URL with the host's own env key — that would let a
+// compromised extension exfiltrate the operator's key by pointing the request at
+// its own server. If the message chose the endpoint, it must also supply the key.
+export function resolveKey(cfg) {
+  if (cfg && cfg.baseUrl && !cfg.apiKey && process.env[KEY_VAR]) {
+    throw new Error('Refusing to send the host API key to a client-supplied base URL. Enter your API key in the extension, or set the endpoint host-side via BROWSER_ORGANIZER_OPENAI_BASE_URL.');
+  }
+  return (cfg && cfg.apiKey) || process.env[KEY_VAR] || '';
+}
 export function resolveBase(cfg) { return ((cfg && cfg.baseUrl) || process.env[BASE_VAR] || DEFAULT_BASE).replace(/\/+$/, ''); }
 export function resolveModel(cfg) { return (cfg && cfg.model) || process.env[MODEL_VAR] || DEFAULT_MODEL; }
 

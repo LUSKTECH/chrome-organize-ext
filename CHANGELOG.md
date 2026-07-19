@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.1.5 — 2026-07-19
+Security hardening of the native host + an extension-only extensibility path.
+
+**Security**
+- **`extraArgs` is now a per-adapter allowlist, not a denylist.** A compromised extension
+  could previously slip short/config flags past the denylist (e.g. codex `-s danger-full-access`
+  or `-c sandbox_mode=…`) and override an agentic CLI's single safety flag. Only each adapter's
+  explicitly-allowed flags are accepted now, and a value flag's value may not itself start with
+  `-` (no flag smuggling).
+- **OpenAI adapter no longer sends the host's env API key to a message-supplied base URL.** That
+  combination could exfiltrate an operator-configured key; the endpoint and key must now come
+  from the same source.
+- A malformed message (`null` / non-object frame) is rejected cleanly instead of crashing the
+  host, and top-level `unhandledRejection`/`uncaughtException` guards keep the connection alive.
+
+**Robustness**
+- `stderr` is size-capped (was unbounded); on timeout the whole process tree is killed on POSIX
+  (not just the direct child); concurrent in-flight requests are capped.
+
+**Extensibility**
+- New `prompt` passthrough task: the extension can run a client-supplied prompt and get the raw
+  (optionally JSON-parsed) model output back, so new AI features ship without a host edit.
+- The health response now advertises `capabilities` (types, tasks, passthrough, adapters) so the
+  extension can feature-detect instead of probing for "Unknown task" errors.
+
 ## 0.1.4 — 2026-07-19
 Organize fixes for Edge + Advanced settings.
 

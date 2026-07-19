@@ -22,6 +22,11 @@ export function getAdapter(name) {
   return a;
 }
 
+// The registered adapter names, for the capability handshake (dispatch.js).
+export function adapterNames() {
+  return [...ADAPTERS.keys()];
+}
+
 // Test seam: lets tests inject a fake adapter. Not used by production code.
 export function registerAdapter(adapter) {
   ADAPTERS.set(adapter.name, adapter);

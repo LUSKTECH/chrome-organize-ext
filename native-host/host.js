@@ -6,22 +6,45 @@ import { chooseMode } from './entry.js';
 
 function send(obj) { process.stdout.write(encodeMessage(obj)); }
 
-// The native-messaging loop the browser talks to. Unchanged behaviour: read
-// length-prefixed frames from stdin, dispatch, write length-prefixed replies.
-function runMessaging() {
-  const reader = createMessageReader();
+// A reply's id echoes the request's id. Guard against non-object frames (a bare
+// `null`/number/string is valid JSON) so reading `.id` can never throw — that
+// would previously escape the handler and crash the whole host.
+function msgId(msg) { return msg && typeof msg === 'object' && !Array.isArray(msg) ? msg.id : null; }
 
-  process.stdin.on('data', async (chunk) => {
-    const messages = reader.push(chunk);
-    for (const msg of messages) {
-      if (msg && msg.frameError) { send({ id: null, ok: false, error: `Bad frame: ${msg.frameError}` }); continue; }
-      try {
-        const result = await handle(msg);
-        send({ id: msg.id, ok: true, result });
-      } catch (err) {
-        send({ id: msg.id, ok: false, error: String((err && err.message) || err) });
-      }
+// Cap concurrent in-flight requests so a flood of messages can't spawn unbounded
+// CLI processes (each can live up to the max timeout). Extra requests queue.
+const MAX_INFLIGHT = 8;
+
+// The native-messaging loop the browser talks to: read length-prefixed frames
+// from stdin, dispatch (bounded concurrency), write length-prefixed replies.
+function runMessaging() {
+  // Backstop: a stray async error must not tear down the connection and drop
+  // every in-flight request. Log to stderr (never stdout — that's the wire) and
+  // keep serving. The per-request path already has its own try/catch below.
+  process.on('unhandledRejection', (err) => { try { process.stderr.write(`[host] unhandledRejection: ${(err && err.stack) || err}\n`); } catch {} });
+  process.on('uncaughtException', (err) => { try { process.stderr.write(`[host] uncaughtException: ${(err && err.stack) || err}\n`); } catch {} });
+
+  const reader = createMessageReader();
+  const queue = [];
+  let inflight = 0;
+  const pump = () => {
+    while (inflight < MAX_INFLIGHT && queue.length) {
+      const msg = queue.shift();
+      inflight += 1;
+      Promise.resolve()
+        .then(() => handle(msg))
+        .then((result) => send({ id: msgId(msg), ok: true, result }))
+        .catch((err) => send({ id: msgId(msg), ok: false, error: String((err && err.message) || err) }))
+        .finally(() => { inflight -= 1; pump(); });
     }
+  };
+
+  process.stdin.on('data', (chunk) => {
+    for (const msg of reader.push(chunk)) {
+      if (msg && msg.frameError) { send({ id: null, ok: false, error: `Bad frame: ${msg.frameError}` }); continue; }
+      queue.push(msg);
+    }
+    pump();
   });
 
   process.stdin.on('end', () => process.exit(0));

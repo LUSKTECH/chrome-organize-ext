@@ -28,6 +28,8 @@ export function resolveModel() {
 
 export const ollamaAdapter = {
   name: 'ollama',
+  // The model is chosen host-side (resolveModel); no extra flags are accepted.
+  allowedExtraFlags: {},
   async run(prompt, opts = {}) {
     const out = await runCli({
       command: resolveCommand(),

@@ -10,16 +10,30 @@ import path from 'node:path';
 import os from 'node:os';
 
 const DEFAULT_MAX_STDOUT = 5 * 1024 * 1024; // 5 MB
+const DEFAULT_MAX_STDERR = 1 * 1024 * 1024; // 1 MB — diagnostic only; truncate, don't kill
+
+// SIGKILL the child AND its descendants. Agentic CLIs fork helpers; on a timeout
+// a plain child.kill leaves those grandchildren orphaned. On POSIX we spawn the
+// child detached (its own process group) and signal the whole group via -pid;
+// Windows has no cheap group kill here, so fall back to killing the child.
+function killTree(child) {
+  try {
+    if (process.platform !== 'win32' && child.pid) process.kill(-child.pid, 'SIGKILL');
+    else child.kill('SIGKILL');
+  } catch { try { child.kill('SIGKILL'); } catch {} }
+}
 
 // Runs a CLI once and resolves with its raw stdout (string). If `usesStdin` is
 // true the prompt is piped to stdin; otherwise stdin is closed empty (the prompt
 // is expected to already be in `args`).
-export async function runCli({ command, args, prompt = '', usesStdin = false, env, timeoutMs = 120000, spawnFn = spawn, maxStdout = DEFAULT_MAX_STDOUT }) {
+export async function runCli({ command, args, prompt = '', usesStdin = false, env, timeoutMs = 120000, spawnFn = spawn, maxStdout = DEFAULT_MAX_STDOUT, maxStderr = DEFAULT_MAX_STDERR }) {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'borg-'));
   try {
     return await new Promise((resolve, reject) => {
       let child;
-      try { child = spawnFn(command, args, { cwd, env }); }
+      // detached on POSIX makes the child a group leader so killTree can reap the
+      // whole tree; harmless where spawnFn is a test mock (no real pid/group).
+      try { child = spawnFn(command, args, { cwd, env, detached: process.platform !== 'win32' }); }
       catch (err) { reject(err); return; }
 
       let stdout = '';
@@ -28,17 +42,20 @@ export async function runCli({ command, args, prompt = '', usesStdin = false, en
       const finish = (fn, arg) => { if (!done) { done = true; clearTimeout(timer); fn(arg); } };
       const timer = setTimeout(() => {
         finish(reject, new Error(`CLI timed out after ${timeoutMs}ms`));
-        try { child.kill('SIGKILL'); } catch {}
+        killTree(child);
       }, timeoutMs);
 
       child.stdout.on('data', (d) => {
         stdout += d;
         if (stdout.length > maxStdout) {
           finish(reject, new Error('CLI output exceeded size limit'));
-          try { child.kill('SIGKILL'); } catch {}
+          killTree(child);
         }
       });
-      child.stderr.on('data', (d) => { stderr += d; });
+      // Cap stderr so a CLI spewing to stderr can't exhaust host memory. Unlike
+      // stdout this is only diagnostic, so truncate (precisely, even for one big
+      // chunk) and keep running rather than kill.
+      child.stderr.on('data', (d) => { if (stderr.length < maxStderr) stderr += String(d).slice(0, maxStderr - stderr.length); });
       child.on('error', (err) => finish(reject, err));
       // A CLI that dies before reading stdin makes the write below emit EPIPE on
       // the stdin stream; without this listener Node throws it uncaught and the

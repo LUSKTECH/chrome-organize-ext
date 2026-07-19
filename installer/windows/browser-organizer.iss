@@ -19,7 +19,7 @@
 #define AppName "Browser Organizer Host"
 ; Version may be passed by CI: iscc /DAppVersion=0.1.3 ...  (falls back otherwise).
 #ifndef AppVersion
-  #define AppVersion "0.1.4"
+  #define AppVersion "0.1.5"
 #endif
 #define ExeName "browser-organizer-host.exe"
 

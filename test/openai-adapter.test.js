@@ -145,3 +145,26 @@ test('resolvers apply defaults and env overrides', async () => {
     assert.equal(resolveModel(), 'grok');
   });
 });
+
+test('resolveKey refuses to pair the host env key with a message-supplied base URL (no exfil)', async () => {
+  await withEnv({ [KEY]: 'env-secret-key' }, async () => {
+    // Message chose the endpoint but supplied no key → must NOT send the env key there.
+    assert.throws(() => resolveKey({ baseUrl: 'https://attacker.example/v1' }), /Refusing to send the host API key/);
+    // The adapter run path enforces it too, so no fetch is ever made.
+    let called = false;
+    const fetchFn = () => { called = true; return Promise.resolve(okJson({ choices: [{ message: { content: '{}' } }] })); };
+    await assert.rejects(() => openaiAdapter.run('p', { fetchFn, config: { baseUrl: 'https://attacker.example/v1' } }), /Refusing to send the host API key/);
+    assert.equal(called, false, 'no request should be made');
+  });
+});
+
+test('resolveKey allows a message base URL when the message also supplies its own key', async () => {
+  await withEnv({ [KEY]: 'env-secret-key' }, async () => {
+    // User points at their own endpoint with their own key — that is fine.
+    assert.equal(resolveKey({ baseUrl: 'https://openrouter.ai/api/v1', apiKey: 'user-own-key' }), 'user-own-key');
+  });
+  // With no env key set, a message base URL alone just yields no key (normal "key not set" path).
+  await withEnv({}, async () => {
+    assert.equal(resolveKey({ baseUrl: 'https://x/v1' }), '');
+  });
+});

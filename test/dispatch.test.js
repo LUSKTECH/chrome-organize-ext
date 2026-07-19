@@ -79,3 +79,48 @@ test('handle sanitizes UI-supplied cli flags (host is the gate)', async () => {
   assert.deepEqual(seenOpts.cli.extraArgs, []);         // dangerous flags dropped host-side
   assert.equal(seenOpts.cli.rejected, true);
 });
+
+test('health advertises capabilities (types, tasks, passthrough, adapters)', async () => {
+  const r = await handle({ type: 'health' }, { getAdapter: fakeGetAdapter('') });
+  assert.ok(r.capabilities, 'capabilities present');
+  assert.ok(r.capabilities.passthrough, 'passthrough advertised');
+  assert.ok(r.capabilities.types.includes('prompt'));
+  assert.ok(r.capabilities.tasks.includes('organize-bookmarks'));
+  assert.ok(Array.isArray(r.capabilities.adapters));
+  // Also present on the not-ready path (capability is host-level, not adapter-level).
+  const bad = () => ({ name: 'fake', async run() { return ''; }, async health() { throw new Error('x'); } });
+  const nr = await handle({ type: 'health' }, { getAdapter: bad });
+  assert.ok(nr.capabilities && nr.capabilities.passthrough);
+});
+
+test('passthrough prompt task returns raw model output', async () => {
+  const r = await handle({ type: 'prompt', payload: { prompt: 'say hi' } }, { getAdapter: fakeGetAdapter('hello there') });
+  assert.deepEqual(r, { raw: 'hello there' });
+});
+
+test('passthrough prompt task optionally parses JSON, tolerating non-JSON', async () => {
+  const ok = await handle({ type: 'prompt', payload: { prompt: 'x', parse: true } }, { getAdapter: fakeGetAdapter('prose {"a":1} more') });
+  assert.deepEqual(ok, { raw: 'prose {"a":1} more', json: { a: 1 } });
+  const bad = await handle({ type: 'prompt', payload: { prompt: 'x', parse: true } }, { getAdapter: fakeGetAdapter('no json here') });
+  assert.deepEqual(bad, { raw: 'no json here', json: null }); // does not throw
+});
+
+test('passthrough requires a prompt', async () => {
+  await assert.rejects(() => handle({ type: 'prompt', payload: {} }, { getAdapter: fakeGetAdapter('') }), /requires payload\.prompt/);
+});
+
+test('handle rejects a null / non-object message instead of crashing', async () => {
+  for (const bad of [null, 123, 'str', []]) {
+    await assert.rejects(() => handle(bad, { getAdapter: fakeGetAdapter('') }), /Invalid message/);
+  }
+});
+
+test('handle applies the adapter flag allowlist (accepts allowed, rejects the rest)', async () => {
+  let seenOpts = null;
+  const getAdapter = () => ({ name: 'codexish', allowedExtraFlags: { '--model': 'value' }, async run(_p, opts) { seenOpts = opts; return '{"groups":[]}'; } });
+  await handle({ type: 'organize', task: 'group', cli: { extraArgs: '--model gpt-5' }, payload: { tabs: [] } }, { getAdapter });
+  assert.deepEqual(seenOpts.cli.extraArgs, ['--model', 'gpt-5']); // allowlisted flag kept
+  await handle({ type: 'organize', task: 'group', cli: { extraArgs: '-s danger-full-access' }, payload: { tabs: [] } }, { getAdapter });
+  assert.equal(seenOpts.cli.rejected, true);          // codex sandbox override blocked
+  assert.deepEqual(seenOpts.cli.extraArgs, []);
+});

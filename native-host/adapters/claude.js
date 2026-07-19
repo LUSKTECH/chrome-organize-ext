@@ -11,6 +11,10 @@ import { runCli, cliVersion } from './run-cli.js';
 // in exactly one place.
 export const claudeAdapter = {
   name: 'claude',
+  // Flags the extension's Advanced settings may add (see config.sanitizeCli).
+  // Deliberately narrow: model selection + verbosity, nothing that grants tools,
+  // file access, or changes permissions/sandbox.
+  allowedExtraFlags: { '--model': 'value', '--fallback-model': 'value', '--verbose': 'bool' },
   async run(prompt, opts = {}) {
     const out = await runCli({
       command: resolveCommand(),

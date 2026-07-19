@@ -1,10 +1,23 @@
-import { getAdapter as defaultGetAdapter } from './adapters/registry.js';
+import { getAdapter as defaultGetAdapter, adapterNames } from './adapters/registry.js';
 import { buildGroupPrompt, buildStalePrompt, buildImportantPrompt, buildCommandPrompt, buildOrganizePrompt } from './prompts.js';
-import { parseGroupResult, parseStaleResult, parseImportantResult, parseCommandResult, parseOrganizeResult } from './parse.js';
+import { parseGroupResult, parseStaleResult, parseImportantResult, parseCommandResult, parseOrganizeResult, parseJsonBlock } from './parse.js';
 import { sanitizeOptions, sanitizeConfig, sanitizeCli } from './config.js';
 import { hostVersion } from './version.js';
 
+// What this host can do, so the extension can feature-detect instead of probing
+// by catching "Unknown task" errors. `passthrough` is the generic `prompt` task
+// that lets the extension ship new AI operations without a host edit.
+function capabilities() {
+  return {
+    types: ['health', 'organize', 'command', 'prompt'],
+    tasks: ['group', 'stale', 'important', 'organize-bookmarks'],
+    passthrough: true,
+    adapters: adapterNames(),
+  };
+}
+
 export async function handle(msg, deps = {}) {
+  if (!msg || typeof msg !== 'object' || Array.isArray(msg)) throw new Error('Invalid message: expected an object');
   const getAdapter = deps.getAdapter || defaultGetAdapter;
   const adapter = getAdapter(msg.adapter || 'claude');
   // opts.config carries the openai adapter's UI-entered key/base/model (if any);
@@ -14,20 +27,39 @@ export async function handle(msg, deps = {}) {
   const cfg = sanitizeConfig(msg.config);
   if (cfg) opts.config = cfg;
   // Advanced-settings CLI controls (MCP/plugins toggles + guarded extra flags).
-  // sanitizeCli enforces the denylist host-side; the adapters apply the result.
-  opts.cli = sanitizeCli(msg.cli);
+  // sanitizeCli enforces this adapter's flag ALLOWLIST host-side; adapters apply it.
+  opts.cli = sanitizeCli(msg.cli, adapter.allowedExtraFlags);
 
   if (msg.type === 'health') {
     try {
       const info = await adapter.health(opts);
-      return { adapter: adapter.name, ready: true, version: info.version, hostVersion: hostVersion() };
+      return { adapter: adapter.name, ready: true, version: info.version, hostVersion: hostVersion(), capabilities: capabilities() };
     } catch (err) {
-      return { adapter: adapter.name, ready: false, error: String((err && err.message) || err), hostVersion: hostVersion() };
+      return { adapter: adapter.name, ready: false, error: String((err && err.message) || err), hostVersion: hostVersion(), capabilities: capabilities() };
     }
   }
 
+  // Generic passthrough: the extension supplies the full prompt and gets the
+  // model's raw text back (optionally leniently parsed as JSON). This is the
+  // extension-only extensibility path — new AI features need no host edit. The
+  // CLI is still locked down by resolveArgs + the sanitizeCli allowlist, so the
+  // blast radius is the same as the existing `rules`/`instruction` fields.
+  if (msg.type === 'prompt') {
+    const payload = msg.payload || {};
+    const prompt = String(payload.prompt || '');
+    if (!prompt) throw new Error('prompt task requires payload.prompt');
+    const out = await adapter.run(prompt, opts);
+    if (payload.parse) {
+      let json = null;
+      try { json = parseJsonBlock(out); } catch { /* not JSON — return raw only */ }
+      return { raw: out, json };
+    }
+    return { raw: out };
+  }
+
   if (msg.type === 'organize') {
-    const { task, payload } = msg;
+    const { task } = msg;
+    const payload = msg.payload || {};
     const rules = payload.rules || '';
     if (task === 'group') {
       const out = await adapter.run(buildGroupPrompt(payload.tabs, rules), opts);
@@ -49,7 +81,8 @@ export async function handle(msg, deps = {}) {
   }
 
   if (msg.type === 'command') {
-    const out = await adapter.run(buildCommandPrompt(msg.payload.instruction, msg.payload.tabs, msg.payload.rules || ''), opts);
+    const payload = msg.payload || {};
+    const out = await adapter.run(buildCommandPrompt(payload.instruction, payload.tabs, payload.rules || ''), opts);
     return parseCommandResult(out);
   }
 

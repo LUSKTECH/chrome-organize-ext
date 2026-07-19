@@ -2,14 +2,45 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { resolveCommand, resolveArgs, sanitizeOptions, sanitizeConfig, sanitizeCli, extraArgs } from '../native-host/config.js';
 
-test('sanitizeCli keeps benign flags, drops dangerous sets, and reads toggles', () => {
-  assert.deepEqual(sanitizeCli({ extraArgs: '--model x --verbose' }).extraArgs, ['--model', 'x', '--verbose']);
-  assert.equal(sanitizeCli({ extraArgs: '--dangerously-skip-permissions' }).rejected, true);
-  assert.deepEqual(sanitizeCli({ extraArgs: '--sandbox danger' }).extraArgs, []); // whole set dropped
-  assert.deepEqual(sanitizeCli({ extraArgs: ['--mcp-config', 'x.json'] }).extraArgs, []);
+test('sanitizeCli allows only allowlisted flags, and reads toggles', () => {
+  const allow = { '--model': 'value', '--verbose': 'bool' };
+  assert.deepEqual(sanitizeCli({ extraArgs: '--model x --verbose' }, allow).extraArgs, ['--model', 'x', '--verbose']);
+  assert.deepEqual(sanitizeCli({ extraArgs: '--model=x' }, allow).extraArgs, ['--model=x']); // inline =value form
+  // Not on the allowlist → whole set dropped.
+  assert.equal(sanitizeCli({ extraArgs: '--dangerously-skip-permissions' }, allow).rejected, true);
+  assert.deepEqual(sanitizeCli({ extraArgs: '--sandbox danger' }, allow).extraArgs, []);
+  assert.deepEqual(sanitizeCli({ extraArgs: ['--mcp-config', 'x.json'] }, allow).extraArgs, []);
+  // No allowlist (default {}) rejects everything with args.
+  assert.equal(sanitizeCli({ extraArgs: '--model x' }).rejected, true);
   const t = sanitizeCli({ loadMcpServers: true, loadPluginsSettings: false });
   assert.equal(t.loadMcpServers, true);
   assert.equal(t.loadPluginsSettings, false);
+  assert.deepEqual(t.extraArgs, []);
+});
+
+test('sanitizeCli blocks the argv-injection bypasses (allowlist, no flag smuggling)', () => {
+  // codex's own sandbox/config overrides that defeated the old denylist:
+  const codexAllow = { '--model': 'value' };
+  for (const evil of [
+    ['-s', 'danger-full-access'],                    // codex short --sandbox
+    ['-c', 'sandbox_mode="danger-full-access"'],     // codex config override
+    ['--config', 'approval_policy="never"'],
+    ['--append-system-prompt', 'pwn'],
+    ['--sandbox', 'x'],
+    ['-C', '/etc'],
+  ]) {
+    const r = sanitizeCli({ extraArgs: evil }, codexAllow);
+    assert.equal(r.rejected, true, `should reject ${JSON.stringify(evil)}`);
+    assert.deepEqual(r.extraArgs, []);
+  }
+  // A value flag whose "value" is actually a smuggled flag is rejected (no
+  // "--model --sandbox danger" turning --sandbox into a real flag).
+  assert.equal(sanitizeCli({ extraArgs: ['--model', '--sandbox'] }, codexAllow).rejected, true);
+  // A bare positional (stray value with no flag) is rejected.
+  assert.equal(sanitizeCli({ extraArgs: ['danger-full-access'] }, codexAllow).rejected, true);
+  // Over-long token and control chars are rejected.
+  assert.equal(sanitizeCli({ extraArgs: ['--model', 'x'.repeat(500)] }, codexAllow).rejected, true);
+  assert.equal(sanitizeCli({ extraArgs: ['--model', 'a\tb'] }, codexAllow).rejected, true); // control char (tab)
 });
 
 test('resolveArgs toggles MCP/settings flags; extraArgs reads opts.cli', () => {
