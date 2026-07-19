@@ -93,21 +93,25 @@ export function mapOrganizeResult(moves, bookmarksById, mode = 'additive', other
         status: 'pending',
         data: { bookmarkId: b.id, fromParentId: b.parentId, fromIndex: b.index, title: b.title, url: b.url },
       };
-      let dest;
+      let path, isNew = false;
       if (m.targetFolderId) {
         if (m.targetFolderId === b.parentId) return null; // already there → no-op
         item.data.toParentId = m.targetFolderId;
-        dest = folderPathById.get(m.targetFolderId) || 'folder';
+        path = folderPathById.get(m.targetFolderId) || 'folder';
       } else if (m.newFolderPath && m.newFolderPath.length && mode !== 'match') {
         item.data.toFolderPath = m.newFolderPath;
         item.data.toRootId = otherId;
-        dest = `${m.newFolderPath.join('/')} (new folder)`;
+        path = m.newFolderPath.join('/');
+        isNew = true;
       } else {
         return null; // match mode + newFolderPath, or no usable destination
       }
-      item.data.toLabel = dest; // human-readable destination for the panel
-      const why = String(m.reason || '').trim();
-      item.reason = `Move to "${dest}"${why ? ` — ${why}` : ''}`;
+      // The panel shows the leaf folder as a chip (full path on hover); the model's
+      // free-text reason is dropped — the destination folder is the category.
+      item.data.toPath = path;
+      item.data.toLabel = path.split('/').filter(Boolean).pop() || path;
+      item.data.toNew = isNew;
+      item.reason = `Move to ${path}${isNew ? ' (new folder)' : ''}`; // concise text for exports/digest
       return item;
     })
     .filter(Boolean);

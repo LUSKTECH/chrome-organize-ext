@@ -21,12 +21,16 @@ test('mapOrganizeResult maps existing-folder + new-folder moves and drops no-ops
   assert.equal(nine.action, 'moveBookmark');
   assert.equal(nine.data.toParentId, '5');
   assert.deepEqual(nine.data.fromParentId, '2');
-  assert.equal(nine.data.toLabel, 'Other Bookmarks/Dev');       // resolved destination
-  assert.match(nine.reason, /Move to "Other Bookmarks\/Dev" — docs/); // shown in the panel
+  assert.equal(nine.data.toLabel, 'Dev');                    // leaf folder name (chip)
+  assert.equal(nine.data.toPath, 'Other Bookmarks/Dev');     // full path (tooltip)
+  assert.equal(nine.data.toNew, false);
+  assert.equal(nine.reason, 'Move to Other Bookmarks/Dev');
   const eight = out.find((i) => i.data.bookmarkId === '8');
   assert.deepEqual(eight.data.toFolderPath, ['Dev', 'React']);
   assert.equal(eight.data.toRootId, '2');
-  assert.match(eight.reason, /Move to "Dev\/React \(new folder\)"/);
+  assert.equal(eight.data.toLabel, 'React');
+  assert.equal(eight.data.toNew, true);
+  assert.match(eight.reason, /Move to Dev\/React \(new folder\)/);
 });
 
 test('mapOrganizeResult in match mode rejects new-folder moves', () => {

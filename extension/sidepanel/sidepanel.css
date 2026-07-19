@@ -263,6 +263,22 @@ ul { margin: 0; padding: 0; }
 .itemCheck { grid-row: 1 / span 2; align-self: center; }
 .itemAction { font-weight: 600; }
 .itemReason { color: var(--text-muted); font-size: 12px; }
+.moveLead { color: var(--text-faint); }
+.destChip {
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: bottom;
+  background: var(--accent-soft);
+  color: var(--accent-soft-text);
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.destChip--new { border: 1px dashed color-mix(in srgb, var(--accent) 55%, transparent); }
 .itemUrl {
   grid-column: 2 / -1;
   color: var(--link);
