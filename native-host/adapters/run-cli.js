@@ -36,7 +36,11 @@ export async function runCli({ command, args, prompt = '', usesStdin = false, en
       try { child = spawnFn(command, args, { cwd, env, detached: process.platform !== 'win32' }); }
       catch (err) { reject(err); return; }
 
-      let stdout = '';
+      // Collect stdout as raw Buffer chunks and decode ONCE at the end. Decoding
+      // each chunk independently (stdout += buf) turns a multibyte UTF-8 char
+      // split across a chunk boundary into U+FFFD replacement characters.
+      const outChunks = [];
+      let outLen = 0;
       let stderr = '';
       let done = false;
       const finish = (fn, arg) => { if (!done) { done = true; clearTimeout(timer); fn(arg); } };
@@ -46,8 +50,10 @@ export async function runCli({ command, args, prompt = '', usesStdin = false, en
       }, timeoutMs);
 
       child.stdout.on('data', (d) => {
-        stdout += d;
-        if (stdout.length > maxStdout) {
+        const buf = Buffer.isBuffer(d) ? d : Buffer.from(d);
+        outChunks.push(buf);
+        outLen += buf.length;
+        if (outLen > maxStdout) {
           finish(reject, new Error('CLI output exceeded size limit'));
           killTree(child);
         }
@@ -62,7 +68,7 @@ export async function runCli({ command, args, prompt = '', usesStdin = false, en
       // whole native host process crashes, killing every in-flight request.
       if (child.stdin && typeof child.stdin.on === 'function') child.stdin.on('error', (err) => finish(reject, err));
       child.on('close', (code) => {
-        if (code === 0) finish(resolve, stdout);
+        if (code === 0) finish(resolve, Buffer.concat(outChunks).toString('utf8'));
         else finish(reject, new Error(`CLI exited ${code}: ${stderr.trim()}`));
       });
 

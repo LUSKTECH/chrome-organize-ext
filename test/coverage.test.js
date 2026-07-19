@@ -2,6 +2,7 @@
 // mock-heavy paths). Grouped here to keep the per-feature suites focused.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { EventEmitter } from 'node:events';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -281,4 +282,22 @@ test('runCli spawns detached on POSIX (so the whole process tree can be killed)'
   const spawnFn = makeFakeSpawn((_stdin, _cmd, _args, options) => { seenOpts = options; return { stdout: '{}' }; });
   await runCli({ command: 'x', args: [], usesStdin: true, spawnFn });
   assert.equal(seenOpts.detached, process.platform !== 'win32');
+});
+
+test('runCli decodes UTF-8 split across chunk boundaries (no replacement chars)', async () => {
+  const jp = Buffer.from('日本語', 'utf8'); // 9 bytes; split mid-character
+  const spawnFn = () => {
+    const child = new EventEmitter();
+    child.stdout = new EventEmitter();
+    child.stderr = new EventEmitter();
+    child.stdin = Object.assign(new EventEmitter(), { write() {}, end() {} });
+    child.kill = () => {};
+    queueMicrotask(() => {
+      child.stdout.emit('data', jp.subarray(0, 4)); // splits the 2nd char
+      child.stdout.emit('data', jp.subarray(4));
+      child.emit('close', 0);
+    });
+    return child;
+  };
+  assert.equal(await runCli({ command: 'x', args: [], spawnFn }), '日本語');
 });

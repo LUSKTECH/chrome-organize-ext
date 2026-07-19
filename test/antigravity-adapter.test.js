@@ -20,7 +20,9 @@ test('BROWSER_ORGANIZER_ANTIGRAVITY_ARGS overrides the flags (prompt still last)
   let seen = null;
   const spawnFn = makeFakeSpawn((stdin, command, args) => { seen = args; return { stdout: '{}' }; });
   await antigravityAdapter.run('PROMPT', { spawnFn });
-  assert.deepEqual(seen, ['--print', '--sandbox', 'PROMPT']);
+  // The prompt flag (-p) is appended adjacent to the prompt, after the overridden
+  // flags, so an extra flag can never be swallowed as -p's value.
+  assert.deepEqual(seen, ['--print', '--sandbox', '-p', 'PROMPT']);
   if (prev === undefined) delete process.env.BROWSER_ORGANIZER_ANTIGRAVITY_ARGS; else process.env.BROWSER_ORGANIZER_ANTIGRAVITY_ARGS = prev;
 });
 
@@ -42,4 +44,11 @@ test('resolveCommand defaults to agy and honors the env override', () => {
   process.env.BROWSER_ORGANIZER_ANTIGRAVITY_CMD = '/opt/agy/bin/agy';
   assert.equal(resolveCommand(), '/opt/agy/bin/agy');
   if (prev === undefined) delete process.env.BROWSER_ORGANIZER_ANTIGRAVITY_CMD; else process.env.BROWSER_ORGANIZER_ANTIGRAVITY_CMD = prev;
+});
+
+test('extra flags go before -p so the prompt stays the -p value (no splice)', async () => {
+  let seen = null;
+  const spawnFn = makeFakeSpawn((s, c, args) => { seen = args; return { stdout: '{}' }; });
+  await antigravityAdapter.run('PROMPT', { spawnFn, cli: { extraArgs: ['--model', 'gemini-x'] } });
+  assert.deepEqual(seen, ['--sandbox', '--model', 'gemini-x', '-p', 'PROMPT']);
 });

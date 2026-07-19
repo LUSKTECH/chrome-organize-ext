@@ -95,3 +95,21 @@ test('reverseEntry moveBookmark moves back; removeFolder recreates (and no-ops o
     ['create', { parentId: '2', index: 0, title: 'Empty' }],
   ]);
 });
+
+test('reverseEntry remaps a bookmark move into a folder recreated in the same batch', async () => {
+  const calls = [];
+  const chrome = {
+    bookmarks: {
+      async move(id, dest) { calls.push(['move', id, dest]); },
+      async create(x) { calls.push(['create', x]); return { id: 'newF', ...x }; },
+    },
+  };
+  const idRemap = new Map();
+  // Reverse-apply order: recreate the folder first (new id), then reverse the move.
+  await reverseEntry({ action: 'removeFolder', reverse: { folderId: 'oldF', parentId: '2', index: 0, title: 'Cloud' } }, chrome, idRemap);
+  await reverseEntry({ action: 'moveBookmark', reverse: { bookmarkId: '9', parentId: 'oldF', index: 0 } }, chrome, idRemap);
+  assert.deepEqual(calls, [
+    ['create', { parentId: '2', index: 0, title: 'Cloud' }],
+    ['move', '9', { parentId: 'newF', index: 0 }], // oldF remapped to the recreated folder
+  ]);
+});
