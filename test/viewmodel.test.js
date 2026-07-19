@@ -177,8 +177,8 @@ test('healthMessage nudges an update when the installed host is below MIN_HOST_V
   const m = healthMessage({ ready: true, version: '2.1.0', hostVersion: '0.1.1' });
   assert.equal(m.ok, true); // still connected — the old host works, it's just stale
   assert.match(m.update, /out of date/i);
-  assert.match(m.update, /0\.1\.1/);
-  assert.match(m.update, new RegExp(MIN_HOST_VERSION.replace(/\./g, '\\.')));
+  assert.ok(m.update.includes('0.1.1'));           // reports the installed version
+  assert.ok(m.update.includes(MIN_HOST_VERSION));  // and the version it needs
 });
 
 test('healthMessage: no update field for a current or unknown host', () => {
