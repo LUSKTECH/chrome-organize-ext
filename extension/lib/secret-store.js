@@ -34,21 +34,39 @@ function idbGet(db, id) {
   });
 }
 
-function idbPut(db, value, id) {
+// Atomic insert-if-absent: resolves true if we stored the value, false if a key
+// already existed (ConstraintError) — used to settle the cross-context race in
+// getCryptoKey without one writer overwriting the other's key.
+function idbAdd(db, value, id) {
   return new Promise((resolve, reject) => {
-    const r = db.transaction(STORE, 'readwrite').objectStore(STORE).put(value, id);
-    r.onsuccess = () => resolve();
-    r.onerror = () => reject(r.error);
+    const r = db.transaction(STORE, 'readwrite').objectStore(STORE).add(value, id);
+    r.onsuccess = () => resolve(true);
+    r.onerror = (e) => {
+      if (r.error && r.error.name === 'ConstraintError') { e.preventDefault(); resolve(false); }
+      else reject(r.error);
+    };
   });
 }
 
-async function getCryptoKey() {
+// Single-flight within this context (service worker OR side panel): concurrent
+// callers share one acquisition instead of each generating a key. Reset on
+// failure so a later call can retry.
+let keyPromise = null;
+function getCryptoKey() {
+  if (!keyPromise) keyPromise = acquireCryptoKey().catch((e) => { keyPromise = null; throw e; });
+  return keyPromise;
+}
+
+async function acquireCryptoKey() {
   const db = await openDb();
   const existing = await idbGet(db, KEY_ID);
   if (existing) return existing;
   const key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false /* non-extractable */, ['encrypt', 'decrypt']);
-  await idbPut(db, key, KEY_ID);
-  return key;
+  // Atomic add: if another context (panel vs SW) generated one concurrently, our
+  // add fails and we adopt the key it stored, so every context uses the same key
+  // and a secret encrypted by one is decryptable by all.
+  if (await idbAdd(db, key, KEY_ID)) return key;
+  return (await idbGet(db, KEY_ID)) || key;
 }
 
 export async function setSecret(name, plaintext) {

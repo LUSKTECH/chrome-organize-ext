@@ -63,8 +63,13 @@ async function applyItemInner(item, c) {
     }
     case 'deleteBookmark': {
       const { bookmarkId, parentId, index, title, url } = item.data;
+      // Staleness guard (mirrors closeTab): the plan captured this bookmark at
+      // scan time. If the user has since edited its URL, don't delete the now-
+      // different bookmark, and don't let undo resurrect a stale snapshot.
+      const live = await c.bookmarks.get(bookmarkId).then((r) => r && r[0]).catch(() => null);
+      if (!live || live.url !== url) throw new StaleTabError(`Bookmark ${bookmarkId} no longer matches ${url}`);
       await c.bookmarks.remove(bookmarkId);
-      return { undoId: undoId(), ts: Date.now(), action: 'deleteBookmark', reverse: { parentId, index, title, url } };
+      return { undoId: undoId(), ts: Date.now(), action: 'deleteBookmark', reverse: { parentId: live.parentId ?? parentId, index: live.index ?? index, title: live.title ?? title, url: live.url } };
     }
     case 'moveBookmark': {
       const { bookmarkId, fromParentId, fromIndex, toParentId, toFolderPath, toRootId } = item.data;

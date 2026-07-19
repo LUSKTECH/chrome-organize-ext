@@ -140,19 +140,29 @@ export function uninstall({
   copyTo = hostHome(platform, process.env, home),
 } = {}) {
   const removed = [];
+  const known = platform === 'win32' ? Object.keys(WIN_REG_ROOTS) : Object.keys(DIRS[platform] || {});
+  const requested = browsers || known;
+  const removingSet = new Set(requested);
+  const removingAll = known.every((b) => removingSet.has(b));
   if (platform === 'win32') {
     const manifestPath = winManifestPath(copyTo);
-    if (fs.existsSync(manifestPath)) { fs.rmSync(manifestPath); removed.push(manifestPath); }
-    removed._registryCommands = registryDeleteCommands(browsers || Object.keys(WIN_REG_ROOTS));
+    // On Windows the manifest is a single shared file used by every browser, so
+    // only remove it when unregistering all of them; the registry keys are per-browser.
+    if (removingAll && fs.existsSync(manifestPath)) { fs.rmSync(manifestPath); removed.push(manifestPath); }
+    removed._registryCommands = registryDeleteCommands(requested);
   } else {
-    const list = browsers || Object.keys(DIRS[platform] || {});
-    for (const browser of list) {
+    for (const browser of requested) {
       const file = path.join(manifestDir(browser, platform, home), `${HOST_NAME}.json`);
       if (fs.existsSync(file)) { fs.rmSync(file); removed.push(file); }
     }
   }
-  // Remove the copied host home so uninstall leaves nothing behind.
-  if (copyTo && fs.existsSync(copyTo)) { fs.rmSync(copyTo, { recursive: true, force: true }); removed.push(copyTo); }
+  // The host home (binary/launcher/shared manifest) is shared across browsers.
+  // Only delete it when no still-registered browser could still be using it —
+  // otherwise a `--uninstall chrome` would silently break an installed Edge.
+  const othersRemain = !removingAll && (platform === 'win32'
+    ? true // conservative: keep the shared home unless removing every browser
+    : known.some((b) => !removingSet.has(b) && fs.existsSync(path.join(manifestDir(b, platform, home), `${HOST_NAME}.json`))));
+  if (copyTo && !othersRemain && fs.existsSync(copyTo)) { fs.rmSync(copyTo, { recursive: true, force: true }); removed.push(copyTo); }
   return removed;
 }
 

@@ -130,11 +130,12 @@ export function sanitizeOptions(raw) {
 // Everything else (command, args, cwd, env for CLI adapters) stays host-resolved
 // and can never come from a message. Each field is validated to a non-empty string;
 // unknown fields are dropped.
+const MAX_CONFIG_LEN = 4096; // generous for a key/URL/model; bounds retained memory per request
 export function sanitizeConfig(raw) {
   if (!raw || typeof raw !== 'object') return undefined;
   const out = {};
   for (const k of ['apiKey', 'baseUrl', 'model']) {
-    if (typeof raw[k] === 'string' && raw[k]) out[k] = raw[k];
+    if (typeof raw[k] === 'string' && raw[k] && raw[k].length <= MAX_CONFIG_LEN) out[k] = raw[k];
   }
   return Object.keys(out).length ? out : undefined;
 }

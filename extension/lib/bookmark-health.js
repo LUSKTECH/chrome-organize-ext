@@ -36,19 +36,26 @@ export function findStaleBookmarks(bookmarks, visitsMap, thresholdDays, now) {
     .map((b) => deleteItem(b, `Not visited in ${thresholdDays}+ days`, { category: 'stale' }));
 }
 
-export async function getVisitsMap(bookmarks, chromeApi = chrome) {
+export async function getVisitsMap(bookmarks, chromeApi = chrome, concurrency = 6) {
   const map = new Map();
-  for (const b of bookmarks) {
-    if (!isHttpUrl(b.url)) continue;
-    const norm = normalizeUrl(b.url);
-    const variants = new Set([b.url, norm, norm.endsWith('/') ? norm.slice(0, -1) : `${norm}/`]);
-    let latest = 0;
-    for (const v of variants) {
-      const visits = await chromeApi.history.getVisits({ url: v });
-      for (const visit of visits) latest = Math.max(latest, visit.visitTime);
+  const targets = bookmarks.filter((b) => isHttpUrl(b.url));
+  let idx = 0;
+  // Bounded worker pool: the previous fully-serial O(3N) awaits made stale-bookmark
+  // scans slow on large collections (mirror checkDeadLinks' pattern).
+  async function worker() {
+    while (idx < targets.length) {
+      const b = targets[idx++];
+      const norm = normalizeUrl(b.url);
+      const variants = new Set([b.url, norm, norm.endsWith('/') ? norm.slice(0, -1) : `${norm}/`]);
+      let latest = 0;
+      for (const v of variants) {
+        const visits = await chromeApi.history.getVisits({ url: v }).catch(() => []);
+        for (const visit of visits) latest = Math.max(latest, visit.visitTime);
+      }
+      if (latest) map.set(norm, latest);
     }
-    if (latest) map.set(norm, latest);
   }
+  await Promise.all(Array.from({ length: Math.min(concurrency, targets.length) }, worker));
   return map;
 }
 

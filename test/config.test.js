@@ -91,3 +91,11 @@ test('sanitizeConfig keeps only apiKey/baseUrl/model strings, drops anything exe
   assert.equal(sanitizeConfig('nope'), undefined);
   assert.equal(sanitizeConfig({ command: 'x', args: ['y'] }), undefined);
 });
+
+test('sanitizeConfig rejects over-long fields', () => {
+  const ok = sanitizeConfig({ apiKey: 'k'.repeat(4096), model: 'm' });
+  assert.equal(ok.apiKey.length, 4096);
+  const capped = sanitizeConfig({ apiKey: 'k'.repeat(4097), model: 'm' });
+  assert.equal(capped.apiKey, undefined); // dropped
+  assert.equal(capped.model, 'm');
+});

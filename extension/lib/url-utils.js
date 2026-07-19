@@ -31,6 +31,21 @@ export function redactUrl(url) {
   }
 }
 
+// Extract a dotted-quad IPv4 embedded in an IPv6 literal, covering the mapped
+// (::ffff:a.b.c.d), compressed-hex (::ffff:aabb:ccdd), and NAT64 (64:ff9b::…)
+// forms the URL parser can produce. Returns 'a.b.c.d' or ''.
+function embeddedV4(h) {
+  const dotted = h.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/);
+  if (dotted) return dotted[1];
+  // Trailing two hextets encode the 32-bit v4 (e.g. ::ffff:a9fe:a9fe → 169.254.169.254).
+  const hex = h.match(/:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+  if (hex && /^(::ffff:|64:ff9b:|::)/.test(h)) {
+    const hi = parseInt(hex[1], 16), lo = parseInt(hex[2], 16);
+    return `${hi >> 8}.${hi & 0xff}.${lo >> 8}.${lo & 0xff}`;
+  }
+  return '';
+}
+
 // True for hosts that must not be sent to a remote model (egress coarsening) and
 // must not be fetched by the dead-link checker (SSRF guard). Fails CLOSED:
 // unparseable/ambiguous hosts are treated as private.
@@ -39,8 +54,15 @@ export function isPrivateHost(url) {
   try { h = new URL(url).hostname.replace(/^\[|\]$/g, '').toLowerCase(); }
   catch { return true; }
   if (!h) return true;
-  if (h.includes(':')) { // IPv6: loopback, unique-local (fc00::/7), link-local (fe80::/10)
-    return h === '::1' || /^f[cd]/.test(h) || /^fe[89ab]/.test(h);
+  if (h.includes(':')) { // IPv6
+    if (h === '::1' || h === '::' || /^f[cd]/.test(h) || /^fe[89ab]/.test(h)) return true; // loopback, unspecified, ULA (fc00::/7), link-local (fe80::/10)
+    // IPv4-mapped/embedded forms (::ffff:a.b.c.d, ::ffff:aabb:ccdd, NAT64
+    // 64:ff9b::/96) would otherwise slip past the v4 checks below — a real SSRF
+    // hole to 127.x / 10.x / 169.254.x. Pull out the trailing embedded v4 (dotted
+    // or the last two hextets) and re-run the dotted-quad checks on it.
+    const v4 = embeddedV4(h);
+    if (v4) return isPrivateHost(`http://${v4}`);
+    return false;
   }
   if (h === 'localhost' || h.endsWith('.local')) return true;
   if (h === '0.0.0.0') return true;

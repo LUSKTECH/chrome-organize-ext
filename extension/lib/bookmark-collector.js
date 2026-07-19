@@ -1,16 +1,14 @@
+// The single leaf-bookmark record shape, shared by both tree walks below so the
+// fields can't drift between collectBookmarks and collectTree.
+function leafRecord(n, path) {
+  return { id: n.id, parentId: n.parentId, index: n.index, title: n.title || '', url: n.url, dateAdded: n.dateAdded || 0, path };
+}
+
 export function flattenBookmarks(nodes, path = []) {
   const out = [];
   for (const n of nodes) {
     if (n.url) {
-      out.push({
-        id: n.id,
-        parentId: n.parentId,
-        index: n.index,
-        title: n.title || '',
-        url: n.url,
-        dateAdded: n.dateAdded || 0,
-        path,
-      });
+      out.push(leafRecord(n, path));
     }
     if (n.children) {
       const childPath = n.title ? [...path, n.title] : path;
@@ -39,7 +37,7 @@ export function isUnfiled(b, rootIds = ROOT_IDS) { return rootIds.has(b.parentId
 function walkTree(nodes, path, out, rootIds) {
   for (const n of nodes) {
     if (n.url) {
-      out.bookmarks.push({ id: n.id, parentId: n.parentId, index: n.index, title: n.title || '', url: n.url, dateAdded: n.dateAdded || 0, path });
+      out.bookmarks.push(leafRecord(n, path));
     } else {
       const selfPath = [...path, n.title || ''];
       out.folders.push({ id: n.id, parentId: n.parentId, index: n.index, title: n.title || '', path: selfPath, childCount: (n.children || []).length, isRoot: rootIds.has(n.id) });

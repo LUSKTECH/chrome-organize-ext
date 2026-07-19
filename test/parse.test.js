@@ -82,3 +82,18 @@ test('parseCommandResult returns the three optional action arrays', () => {
   assert.deepEqual(r.groups, []);
   assert.deepEqual(r.important, []);
 });
+
+test('parseJsonBlock stays fast on adversarial unbalanced input (scan budget)', () => {
+  // A crafted body of hundreds of KB of "{" would drive the O(n^2) scan for
+  // minutes without the budget cap, freezing the single-threaded host.
+  const evil = '{'.repeat(300000);
+  const t0 = process.hrtime.bigint();
+  assert.throws(() => parseJsonBlock(evil), /No JSON found/);
+  const ms = Number(process.hrtime.bigint() - t0) / 1e6;
+  assert.ok(ms < 500, `scan took ${ms.toFixed(0)}ms — budget cap not effective`);
+});
+
+test('parseJsonBlock still finds JSON after some leading prose/braces', () => {
+  const out = parseJsonBlock('note: {partial and prose { here\nActual answer: {"groups":[{"name":"A","color":"blue","tabIds":[1,2]}]}');
+  assert.deepEqual(out.groups[0].tabIds, [1, 2]);
+});

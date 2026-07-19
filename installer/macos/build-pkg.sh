@@ -15,9 +15,11 @@
 # so registration is per-user (no root-owned manifests).
 set -eu
 
-VERSION="${VERSION:-0.1.0}"
-IDENTIFIER="tech.lusk.browserorganizer.host"
 ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
+# Default the version from the single source of truth (native-host/package.json);
+# CI overrides via $VERSION. Keeps all installers from drifting apart.
+VERSION="${VERSION:-$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' "$ROOT_DIR/native-host/package.json" | head -1)}"
+IDENTIFIER="tech.lusk.browserorganizer.host"
 BIN="$ROOT_DIR/dist/host/browser-organizer-host"
 OUT="$ROOT_DIR/dist/BrowserOrganizer.pkg"
 

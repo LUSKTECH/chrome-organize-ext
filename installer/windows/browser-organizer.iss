@@ -17,7 +17,7 @@
 ;   3. On uninstall, runs `--uninstall chrome,edge` to remove them.
 
 #define AppName "Browser Organizer Host"
-; Version may be passed by CI: iscc /DAppVersion=0.1.3 ...  (falls back otherwise).
+; Version may be passed by CI: iscc /DAppVersion=0.1.5 ...  (falls back otherwise).
 #ifndef AppVersion
   #define AppVersion "0.1.5"
 #endif

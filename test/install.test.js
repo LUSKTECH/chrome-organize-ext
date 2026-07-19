@@ -155,3 +155,24 @@ test('runRegistryCommands runs each argv via the injected spawn (no shell) and n
   runRegistryCommands(undefined, (b) => c2.push(b));
   assert.equal(c2.length, 0);
 });
+
+test('uninstall of one browser keeps the shared host home for the other', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'borg-uninstall-'));
+  const copyTo = path.join(home, '.browser-organizer');
+  fs.mkdirSync(copyTo, { recursive: true });
+  fs.writeFileSync(path.join(copyTo, 'host.js'), '// stub');
+  for (const b of ['chrome', 'edge']) {
+    const dir = manifestDir(b, 'linux', home);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, `${HOST_NAME}.json`), '{}');
+  }
+  // Uninstalling only chrome must not delete the shared home Edge still uses.
+  uninstall({ browsers: ['chrome'], platform: 'linux', home, copyTo });
+  assert.equal(fs.existsSync(path.join(manifestDir('chrome', 'linux', home), `${HOST_NAME}.json`)), false);
+  assert.equal(fs.existsSync(path.join(manifestDir('edge', 'linux', home), `${HOST_NAME}.json`)), true);
+  assert.equal(fs.existsSync(copyTo), true, 'shared home kept while edge still registered');
+  // Removing the last browser cleans up the shared home.
+  uninstall({ browsers: ['edge'], platform: 'linux', home, copyTo });
+  assert.equal(fs.existsSync(copyTo), false, 'shared home removed after last browser');
+  fs.rmSync(home, { recursive: true, force: true });
+});

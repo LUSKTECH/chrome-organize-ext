@@ -55,3 +55,16 @@ test('isPrivateHost flags IPv6 ULA/link-local, 0.0.0.0, and encoded IPv4; fails 
   assert.equal(isPrivateHost('not a url'), true);              // fail closed
   assert.equal(isPrivateHost('http://fcbarcelona.com/'), false); // 'fc' hostname is NOT v6 ULA
 });
+
+test('isPrivateHost catches IPv4-mapped/embedded IPv6 (SSRF guard)', () => {
+  // Mapped/embedded forms of internal targets must be treated as private —
+  // otherwise the dead-link scanner could reach cloud metadata / loopback.
+  assert.equal(isPrivateHost('http://[::ffff:169.254.169.254]/latest/meta-data/'), true);
+  assert.equal(isPrivateHost('http://[::ffff:127.0.0.1]/'), true);
+  assert.equal(isPrivateHost('http://[::ffff:10.0.0.1]/'), true);
+  assert.equal(isPrivateHost('http://[64:ff9b::a9fe:a9fe]/'), true); // NAT64 → 169.254.169.254
+  assert.equal(isPrivateHost('http://[::]/'), true);                 // unspecified
+  // A genuinely public address (even in mapped form) stays public.
+  assert.equal(isPrivateHost('http://[::ffff:8.8.8.8]/'), false);
+  assert.equal(isPrivateHost('https://[2606:4700:4700::1111]/'), false);
+});

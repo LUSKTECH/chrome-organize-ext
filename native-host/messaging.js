@@ -20,7 +20,9 @@ export function createMessageReader() {
   let buffer = Buffer.alloc(0);
   return {
     push(chunk) {
-      buffer = Buffer.concat([buffer, chunk]);
+      // Common case: a whole frame arrives in one chunk with an empty residual
+      // buffer — adopt it directly instead of allocating a concat copy.
+      buffer = buffer.length ? Buffer.concat([buffer, chunk]) : chunk;
       const messages = [];
       while (buffer.length >= 4) {
         const len = buffer.readUInt32LE(0);

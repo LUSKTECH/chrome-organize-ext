@@ -17,9 +17,11 @@
 # keeps the package free of per-user side effects and multi-user safe.
 set -eu
 
-VERSION="${VERSION:-0.1.0}"
-ARCH="${ARCH:-amd64}"
 ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
+# Default the version from the single source of truth (native-host/package.json);
+# CI overrides via $VERSION. Keeps all installers from drifting apart.
+VERSION="${VERSION:-$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' "$ROOT_DIR/native-host/package.json" | head -1)}"
+ARCH="${ARCH:-amd64}"
 BIN="$ROOT_DIR/dist/host/browser-organizer-host"
 OUT="$ROOT_DIR/dist/browser-organizer-host_${VERSION}_${ARCH}.deb"
 

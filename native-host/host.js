@@ -12,8 +12,11 @@ function send(obj) { process.stdout.write(encodeMessage(obj)); }
 function msgId(msg) { return msg && typeof msg === 'object' && !Array.isArray(msg) ? msg.id : null; }
 
 // Cap concurrent in-flight requests so a flood of messages can't spawn unbounded
-// CLI processes (each can live up to the max timeout). Extra requests queue.
+// CLI processes (each can live up to the max timeout). Extra requests queue, but
+// the queue itself is bounded (MAX_QUEUE) so a flood can't grow memory without
+// limit — past the cap we reject with an error instead of buffering forever.
 const MAX_INFLIGHT = 8;
+const MAX_QUEUE = 256;
 
 // The native-messaging loop the browser talks to: read length-prefixed frames
 // from stdin, dispatch (bounded concurrency), write length-prefixed replies.
@@ -27,6 +30,7 @@ function runMessaging() {
   const reader = createMessageReader();
   const queue = [];
   let inflight = 0;
+  let paused = false;
   const pump = () => {
     while (inflight < MAX_INFLIGHT && queue.length) {
       const msg = queue.shift();
@@ -37,13 +41,18 @@ function runMessaging() {
         .catch((err) => send({ id: msgId(msg), ok: false, error: String((err && err.message) || err) }))
         .finally(() => { inflight -= 1; pump(); });
     }
+    // Resume reading once the backlog has drained below the cap.
+    if (paused && queue.length < MAX_QUEUE) { paused = false; try { process.stdin.resume(); } catch {} }
   };
 
   process.stdin.on('data', (chunk) => {
     for (const msg of reader.push(chunk)) {
       if (msg && msg.frameError) { send({ id: null, ok: false, error: `Bad frame: ${msg.frameError}` }); continue; }
+      if (queue.length + inflight >= MAX_QUEUE) { send({ id: msgId(msg), ok: false, error: 'Host busy: too many pending requests' }); continue; }
       queue.push(msg);
     }
+    // Stop pulling more stdin while the backlog is at the cap; pump() resumes us.
+    if (!paused && queue.length >= MAX_QUEUE) { paused = true; try { process.stdin.pause(); } catch {} }
     pump();
   });
 

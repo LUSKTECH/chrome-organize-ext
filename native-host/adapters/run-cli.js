@@ -75,16 +75,23 @@ export async function runCli({ command, args, prompt = '', usesStdin = false, en
 }
 
 // Runs `<command> <versionArgs>` and resolves { version }.
-export async function cliVersion({ command, versionArgs = ['--version'], env, spawnFn = spawn, timeoutMs = 10000 }) {
+export async function cliVersion({ command, versionArgs = ['--version'], env, spawnFn = spawn, timeoutMs = 10000, maxStdout = 64 * 1024 }) {
   return await new Promise((resolve, reject) => {
-    let out = '';
+    const chunks = [];
+    let len = 0;
     let child;
-    try { child = spawnFn(command, versionArgs, { env }); }
+    try { child = spawnFn(command, versionArgs, { env, detached: process.platform !== 'win32' }); }
     catch (err) { reject(err); return; }
-    const timer = setTimeout(() => { try { child.kill('SIGKILL'); } catch {}; reject(new Error('version check timed out')); }, timeoutMs);
-    child.stdout.on('data', (d) => { out += d; });
-    child.on('error', (err) => { clearTimeout(timer); reject(err); });
-    child.on('close', (code) => { clearTimeout(timer); code === 0 ? resolve({ version: out.trim() }) : reject(new Error(`version check exited ${code}`)); });
+    let done = false;
+    const finish = (fn, arg) => { if (!done) { done = true; clearTimeout(timer); fn(arg); } };
+    const timer = setTimeout(() => { finish(reject, new Error('version check timed out')); killTree(child); }, timeoutMs);
+    // Cap stdout so a chatty/hostile version command can't grow host memory.
+    child.stdout.on('data', (d) => {
+      const buf = Buffer.isBuffer(d) ? d : Buffer.from(d);
+      if (len < maxStdout) { chunks.push(buf.subarray(0, maxStdout - len)); len += buf.length; }
+    });
+    child.on('error', (err) => finish(reject, err));
+    child.on('close', (code) => code === 0 ? finish(resolve, { version: Buffer.concat(chunks).toString('utf8').trim() }) : finish(reject, new Error(`version check exited ${code}`)));
     if (child.stdin) child.stdin.end();
   });
 }

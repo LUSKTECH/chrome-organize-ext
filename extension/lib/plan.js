@@ -95,6 +95,9 @@ export function mapOrganizeResult(moves, bookmarksById, mode = 'additive', other
       };
       let path, isNew = false;
       if (m.targetFolderId) {
+        // The model must reference a real folder from the inventory we sent —
+        // don't move a bookmark into an id the model invented/hallucinated.
+        if (!folderPathById.has(m.targetFolderId)) return null;
         if (m.targetFolderId === b.parentId) return null; // already there → no-op
         item.data.toParentId = m.targetFolderId;
         path = folderPathById.get(m.targetFolderId) || 'folder';

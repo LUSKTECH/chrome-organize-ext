@@ -7,6 +7,7 @@ import { findDuplicateTabs } from './tab-health.js';
 import { applyItem as defaultApplyItem } from './executor.js';
 import { recordUndo as defaultRecordUndo } from './undo-log.js';
 import { redactUrl, isPrivateHost } from './url-utils.js';
+import { withLock } from './mutex.js';
 
 // High-impact/destructive actions are never auto-applied — they always wait for
 // explicit review, even in auto mode.
@@ -79,9 +80,14 @@ export async function buildPlan(deps) {
   const step = (label) => { onProgress(label, done++, PHASES); };
 
   const rawTabs = await chromeApi.tabs.query({});
-  const priorActivity = (await chromeApi.storage.local.get('tabActivity')).tabActivity || {};
-  const activity = reconcile(priorActivity, rawTabs, now);
-  await chromeApi.storage.local.set({ tabActivity: activity });
+  // Serialize with the activity-tracker listeners (same 'tabActivity' key) so this
+  // reconcile can't clobber a just-written lastActive, and vice-versa.
+  const activity = await withLock('tabActivity', async () => {
+    const priorActivity = (await chromeApi.storage.local.get('tabActivity')).tabActivity || {};
+    const next = reconcile(priorActivity, rawTabs, now);
+    await chromeApi.storage.local.set({ tabActivity: next });
+    return next;
+  });
   const tabs = await collectTabs(chromeApi, activity, now, deps.windowId ?? null);
   const byId = indexById(tabs);
   const items = [];
@@ -379,7 +385,10 @@ export async function applyItems(items, deps = {}) {
       // end-of-batch write would lose them all on failure).
       if (undo) await recordUndo([undo]);
       applied.push(item.itemId);
-    } catch {
+    } catch (e) {
+      // StaleTabError etc. are expected skips, but a swallowed error made apply
+      // failures undiagnosable — surface it (the item still counts as failed).
+      console.warn('[organizer] apply failed for', item.action, item.itemId, e);
       failed.push(item.itemId);
     }
   }

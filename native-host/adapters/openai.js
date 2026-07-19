@@ -40,12 +40,29 @@ export function resolveKey(cfg) {
 export function resolveBase(cfg) { return ((cfg && cfg.baseUrl) || process.env[BASE_VAR] || DEFAULT_BASE).replace(/\/+$/, ''); }
 export function resolveModel(cfg) { return (cfg && cfg.model) || process.env[MODEL_VAR] || DEFAULT_MODEL; }
 
+// Link-local / cloud-metadata endpoints (169.254.0.0/16, incl. AWS/GCP/Azure
+// 169.254.169.254 and its IPv4-mapped IPv6 form). Loopback and LAN stay allowed
+// so a user can point at LM Studio / vLLM, but a metadata address is never a
+// legitimate model endpoint — refuse it even when the base came from a message.
+function isMetadataHost(hostname) {
+  const h = hostname.replace(/^\[|\]$/g, '').toLowerCase();
+  if (/^169\.254\./.test(h)) return true;
+  if (h.includes(':')) {
+    const m = h.match(/(?::ffff:|:)(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/);
+    if (m && /^169\.254\./.test(m[1])) return true;
+    const hex = h.match(/:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+    if (hex && /^::ffff:/.test(h) && (parseInt(hex[1], 16) >> 8) === 169 && (parseInt(hex[1], 16) & 0xff) === 254) return true;
+  }
+  return false;
+}
+
 // Refuse to send the bearer key over cleartext http, except to loopback (local
 // servers like LM Studio / vLLM). Returns the validated base URL.
 function checkedBase(cfg) {
   const base = resolveBase(cfg);
   let u;
   try { u = new URL(base); } catch { throw new Error(`Invalid ${BASE_VAR}: ${base}`); }
+  if (isMetadataHost(u.hostname)) throw new Error(`${BASE_VAR} must not point at a link-local/metadata address (${u.hostname})`);
   const loopback = u.hostname === 'localhost' || u.hostname === '127.0.0.1' || u.hostname === '[::1]' || u.hostname === '::1';
   if (u.protocol === 'http:' && !loopback) {
     throw new Error(`${BASE_VAR} must be https:// (refusing to send the API key over cleartext http to ${u.hostname})`);
@@ -81,10 +98,6 @@ function authHeaders(key) {
   return { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' };
 }
 
-async function safeText(res) {
-  try { return await res.text(); } catch { return ''; }
-}
-
 // fetch with an AbortController timeout. fetchFn is injectable for tests.
 async function fetchWithTimeout(fetchFn, url, options, timeoutMs) {
   if (typeof fetchFn !== 'function') throw new Error('global fetch unavailable — the native host needs Node 18+');
@@ -114,7 +127,9 @@ export const openaiAdapter = {
       temperature: 0, // deterministic-ish: we want strict JSON, not creativity
     });
     const res = await fetchWithTimeout(fetchFn, `${checkedBase(cfg)}/chat/completions`, { method: 'POST', headers: authHeaders(key), body }, timeoutMs);
-    if (!res.ok) throw new Error(`OpenAI API ${res.status}: ${(await safeText(res)).slice(0, 200)}`);
+    // Don't relay the upstream response body into the error: with a client-chosen
+    // baseUrl that would turn a bad status into an SSRF read-back primitive.
+    if (!res.ok) throw new Error(`OpenAI API ${res.status}`);
     const data = await readCappedJson(res);
     const content = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
     if (typeof content !== 'string') throw new Error('OpenAI API returned no message content');

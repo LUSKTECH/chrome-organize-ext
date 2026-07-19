@@ -78,10 +78,21 @@ test('run throws when no API key is set', async () => {
   });
 });
 
-test('run throws with status + body on a non-2xx response', async () => {
+test('run throws with status only (never the upstream body) on a non-2xx response', async () => {
   await withEnv({ [KEY]: 'k' }, async () => {
     const fetchFn = () => Promise.resolve(errRes(401, 'Incorrect API key provided'));
-    await assert.rejects(() => openaiAdapter.run('p', { fetchFn }), /OpenAI API 401: Incorrect API key/);
+    // The upstream body must NOT leak into the error: with a client-chosen baseUrl
+    // that would be an SSRF read-back primitive.
+    await assert.rejects(() => openaiAdapter.run('p', { fetchFn }), (e) => /OpenAI API 401/.test(e.message) && !/Incorrect API key/.test(e.message));
+  });
+});
+
+test('run refuses a client baseUrl pointing at a link-local/metadata address', async () => {
+  await withEnv({}, async () => {
+    const fetchFn = () => { throw new Error('should not be called'); };
+    for (const baseUrl of ['http://169.254.169.254/latest', 'http://[::ffff:169.254.169.254]/v1']) {
+      await assert.rejects(() => openaiAdapter.run('p', { fetchFn, config: { apiKey: 'k', baseUrl } }), /link-local\/metadata/);
+    }
   });
 });
 

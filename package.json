@@ -1,6 +1,6 @@
 {
   "name": "browser-organizer",
-  "version": "0.1.0",
+  "version": "0.1.5",
   "private": true,
   "type": "module",
   "engines": {
@@ -19,8 +19,10 @@
   "devDependencies": {
     "@eslint/js": "^9.39.5",
     "@playwright/test": "^1.61.1",
+    "esbuild": "0.25.12",
     "eslint": "^9.39.5",
     "eslint-plugin-no-unsanitized": "^4.1.5",
-    "playwright": "^1.61.1"
+    "playwright": "^1.61.1",
+    "postject": "1.0.0-alpha.6"
   }
 }

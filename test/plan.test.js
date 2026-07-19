@@ -105,3 +105,11 @@ test('mapStaleResult emits discardTab for suspend disposition', () => {
   assert.equal(items[0].action, 'discardTab');
   assert.equal(items[0].data.tabId, 5);
 });
+
+test('mapOrganizeResult drops a move to a targetFolderId not in the inventory', () => {
+  const byId = new Map([['9', { id: '9', parentId: '2', index: 0, title: 'MDN', url: 'https://mdn.dev' }]]);
+  // Model returns a folder id that was never sent — must not become a move.
+  const folderPathById = new Map([['5', 'Other Bookmarks/Dev']]);
+  const out = mapOrganizeResult([{ bookmarkId: '9', targetFolderId: '999' }], byId, 'additive', '2', folderPathById);
+  assert.deepEqual(out, []);
+});

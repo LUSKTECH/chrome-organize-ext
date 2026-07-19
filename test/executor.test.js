@@ -124,12 +124,21 @@ test('createBookmark builds folder path then creates the bookmark', async () => 
   assert.ok(undo.reverse.bookmarkId);
 });
 
-test('deleteBookmark removes and returns a recreate entry', async () => {
+test('deleteBookmark removes and returns a recreate entry (url still matches)', async () => {
   const chrome = makeChrome();
+  chrome.bookmarks.get = async (id) => [{ id, url: 'https://old.com', parentId: '1', index: 0, title: 'Old' }];
   const item = { action: 'deleteBookmark', data: { bookmarkId: '77', parentId: '1', index: 0, title: 'Old', url: 'https://old.com' } };
   const undo = await applyItem(item, { chrome });
   assert.deepEqual(chrome._removed, ['bm:77']);
   assert.equal(undo.reverse.url, 'https://old.com');
+});
+
+test('deleteBookmark refuses when the bookmark url no longer matches (edited since scan)', async () => {
+  const chrome = makeChrome();
+  chrome.bookmarks.get = async (id) => [{ id, url: 'https://EDITED.com', parentId: '1', index: 0, title: 'New' }];
+  const item = { action: 'deleteBookmark', data: { bookmarkId: '77', parentId: '1', index: 0, title: 'Old', url: 'https://old.com' } };
+  await assert.rejects(() => applyItem(item, { chrome }), /no longer matches/i);
+  assert.deepEqual(chrome._removed, []); // nothing deleted
 });
 
 test('closeTab refuses to close a tab whose url no longer matches (id reuse guard)', async () => {

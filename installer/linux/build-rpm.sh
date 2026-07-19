@@ -15,9 +15,11 @@
 # manifests live under each user's home.
 set -eu
 
-VERSION="${VERSION:-0.1.0}"
-ARCH="${ARCH:-x86_64}"
 ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
+# Default the version from the single source of truth (native-host/package.json);
+# CI overrides via $VERSION. Keeps all installers from drifting apart.
+VERSION="${VERSION:-$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' "$ROOT_DIR/native-host/package.json" | head -1)}"
+ARCH="${ARCH:-x86_64}"
 BIN="$ROOT_DIR/dist/host/browser-organizer-host"
 
 if [ ! -f "$BIN" ]; then

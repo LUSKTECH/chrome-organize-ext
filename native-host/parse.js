@@ -7,11 +7,15 @@ function stripAnsi(s) {
 
 // Extract the *balanced* {…}/[…] block that starts at index `start`, respecting
 // string literals/escapes so a brace inside a string doesn't end it early.
-function extractBalancedAt(t, start) {
+// `budget` is a shared {n} counter decremented per character examined; when it
+// runs out the scan bails (returns null). This bounds the whole extraction to
+// O(budget) total work instead of O(n²) on adversarial unbalanced input.
+function extractBalancedAt(t, start, budget) {
   const open = t[start];
   const close = open === '{' ? '}' : ']';
   let depth = 0, inStr = false, esc = false;
   for (let i = start; i < t.length; i++) {
+    if (budget && --budget.n < 0) return null;
     const c = t[i];
     if (inStr) {
       if (esc) esc = false;
@@ -26,6 +30,11 @@ function extractBalancedAt(t, start) {
   return null;
 }
 
+// Total characters the balanced-block scanner may examine across all start
+// positions. Generous enough for any real model answer (JSON near the top),
+// small enough that the worst case stays in the low-millisecond range.
+const MAX_SCAN_CHARS = 2_000_000;
+
 export function parseJsonBlock(text) {
   const t = stripAnsi(String(text)).trim();
   try { return JSON.parse(t); } catch { /* try harder */ }
@@ -33,9 +42,14 @@ export function parseJsonBlock(text) {
   if (fence) { try { return JSON.parse(fence[1].trim()); } catch { /* fall through */ } }
   // Scan every { or [ and return the first balanced block that parses — handles
   // adapters that print prose (even prose with braces) before the JSON answer.
+  // A shared scan budget caps total work: adversarial model output (e.g. the
+  // `prompt` passthrough emitting hundreds of KB of "{") would otherwise drive
+  // this O(n²) and freeze the single-threaded host event loop for minutes.
+  const budget = { n: MAX_SCAN_CHARS };
   for (let i = 0; i < t.length; i++) {
+    if (budget.n < 0) break;
     if (t[i] !== '{' && t[i] !== '[') continue;
-    const block = extractBalancedAt(t, i);
+    const block = extractBalancedAt(t, i, budget);
     if (block) { try { return JSON.parse(block); } catch { /* keep scanning */ } }
   }
   throw new Error('No JSON found in model output');

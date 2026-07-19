@@ -80,9 +80,13 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
 chrome.runtime.onStartup.addListener(async () => {
   const now = Date.now();
   const rawTabs = await chrome.tabs.query({});
-  const { tabActivity = {} } = await chrome.storage.local.get('tabActivity');
   const { reconcile } = await import('../lib/activity-tracker.js');
-  await chrome.storage.local.set({ tabActivity: reconcile(tabActivity, rawTabs, now) });
+  // Share the 'tabActivity' lock with the activity listeners so this startup
+  // reconcile can't clobber a concurrently-written timestamp.
+  await withLock('tabActivity', async () => {
+    const { tabActivity = {} } = await chrome.storage.local.get('tabActivity');
+    await chrome.storage.local.set({ tabActivity: reconcile(tabActivity, rawTabs, now) });
+  });
   await chrome.storage.local.remove('currentPlan'); // stale plan (see Task 6)
 });
 
@@ -124,13 +128,27 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 
 // Single-flight: three callers (panel, hotkey, 12h alarm) can trigger a scan.
 // Overlapping scans would interleave read-modify-write on deadCursor/deadStrikes/
-// currentPlan and corrupt them, so a second caller joins the in-flight run.
+// currentPlan and corrupt them. A second caller with the SAME scope+features
+// joins the in-flight run; a caller with DIFFERENT scope (e.g. the panel asks
+// for one window while a background all-windows scan runs) must NOT receive the
+// other run's plan, so it waits and then runs with its own parameters.
 // Each run gets its own cancel token so a Cancel targets exactly one scan.
 let scanInFlight = null;
+let scanInFlightSig = null;
 let currentScanCancel = null;
 
+function scanSig(deps = {}) {
+  return JSON.stringify({ w: deps.windowId ?? null, f: deps.features ?? null });
+}
+
 function runScan(deps = {}) {
-  if (scanInFlight) return scanInFlight;
+  const sig = scanSig(deps);
+  if (scanInFlight) {
+    if (scanInFlightSig === sig) return scanInFlight;
+    // Different scope/features: chain after the current run rather than return it.
+    return scanInFlight.then(() => runScan(deps), () => runScan(deps));
+  }
+  scanInFlightSig = sig;
   const token = { cancelled: false };
   currentScanCancel = token;
   const onProgress = deps.onProgress || broadcastProgress;
@@ -156,7 +174,7 @@ function runScan(deps = {}) {
     } finally {
       nativeClient.disconnect();
     }
-  })().finally(() => { scanInFlight = null; currentScanCancel = null; });
+  })().finally(() => { scanInFlight = null; scanInFlightSig = null; currentScanCancel = null; });
   return scanInFlight;
 }
 
@@ -210,6 +228,15 @@ async function handleRun(m) {
 function handleCancel() {
   if (currentScanCancel) currentScanCancel.cancelled = true;
   return { ok: true };
+}
+
+// The single settings writer. The side panel and service worker run in separate
+// JS contexts with separate in-memory locks, so a panel writing settings directly
+// couldn't be serialized against SW writers (handleIgnore etc.) — last write wins
+// and clobbers. Routing every panel settings write through here puts all writers
+// in ONE context under ONE 'settings' lock.
+async function handleSetSettings(m) {
+  return withLock('settings', async () => ({ ok: true, settings: await setSettings(m.patch || {}) }));
 }
 
 async function handleIgnore(m) {
@@ -347,6 +374,7 @@ async function handleHealth() {
 const HANDLERS = {
   run: handleRun,
   cancel: handleCancel,
+  setSettings: handleSetSettings,
   ignore: handleIgnore,
   listOpenTabs: handleListOpenTabs,
   focusTab: handleFocusTab,
