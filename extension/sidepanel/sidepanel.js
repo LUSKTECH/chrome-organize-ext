@@ -48,7 +48,10 @@ function flashStatus(t) {
 // race SW-side writers (ignore/decisions) and clobber them. Reads stay local.
 async function setSettings(patch) {
   const r = await send({ cmd: 'setSettings', patch });
-  return r && r.settings;
+  // A dropped/failed write must not look like success (the SW may be asleep and
+  // the callback fires with no response). Throw so callers can surface it.
+  if (!r || !r.ok) throw new Error((r && r.error) || 'the background worker did not respond — settings were not saved');
+  return r.settings;
 }
 
 // Fetch the stored plan, tolerating a null response (SW asleep/no reply — the
@@ -682,9 +685,11 @@ $('settingsForm').adapter.addEventListener('change', async (e) => {
   updateAdapterNote(e.target.value);
   syncExtraArgsField(e.target.value); // show this backend's extra flags
   setStatus(`Switching to ${e.target.selectedOptions[0].text}…`);
-  await setSettings({ adapter: e.target.value });
-  await checkHealth();
-  setStatus('');
+  try {
+    await setSettings({ adapter: e.target.value });
+    await checkHealth();
+    setStatus('');
+  } catch (err) { setStatus(`Could not switch adapter: ${err.message}`); }
 });
 
 async function loadSettings() {
@@ -726,6 +731,7 @@ async function loadSettings() {
 $('settingsForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const form = e.target;
+  try {
   if (form.deadLinkScan.checked) {
     await chrome.permissions.request({ origins: ['<all_urls>'] });
   }
@@ -775,6 +781,7 @@ $('settingsForm').addEventListener('submit', async (e) => {
   // onboarding card + disables Analyze if the new backend isn't reachable.
   await checkHealth();
   flashStatus('Settings saved.');
+  } catch (err) { flashStatus(`Save failed: ${err.message}`); }
 });
 
 async function renderSessions() {
@@ -855,8 +862,8 @@ async function renderMuted() {
     unmute.textContent = 'Unmute';
     unmute.addEventListener('click', async () => {
       const cur = await getSettings();
-      await setSettings({ ignore: (cur.ignore || []).filter((k) => k !== key) });
-      renderMuted();
+      try { await setSettings({ ignore: (cur.ignore || []).filter((k) => k !== key) }); renderMuted(); }
+      catch (err) { setStatus(`Unmute failed: ${err.message}`); }
     });
     li.append(span, unmute);
     list.appendChild(li);
@@ -865,8 +872,8 @@ async function renderMuted() {
 
 $('mutedPanel').addEventListener('toggle', () => { if ($('mutedPanel').open) renderMuted(); });
 $('resetLearning').addEventListener('click', async () => {
-  await setSettings({ decisions: {} });
-  setStatus('Learning reset.');
+  try { await setSettings({ decisions: {} }); setStatus('Learning reset.'); }
+  catch (err) { setStatus(`Reset failed: ${err.message}`); }
 });
 
 $('saveSessionForm').addEventListener('submit', async (e) => {

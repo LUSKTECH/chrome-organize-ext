@@ -41,8 +41,8 @@ function runMessaging() {
         .catch((err) => send({ id: msgId(msg), ok: false, error: String((err && err.message) || err) }))
         .finally(() => { inflight -= 1; pump(); });
     }
-    // Resume reading once the backlog has drained below the cap.
-    if (paused && queue.length < MAX_QUEUE) { paused = false; try { process.stdin.resume(); } catch {} }
+    // Resume reading once total pending (queued + in-flight) drains below the cap.
+    if (paused && queue.length + inflight < MAX_QUEUE) { paused = false; try { process.stdin.resume(); } catch {} }
   };
 
   process.stdin.on('data', (chunk) => {
@@ -51,8 +51,8 @@ function runMessaging() {
       if (queue.length + inflight >= MAX_QUEUE) { send({ id: msgId(msg), ok: false, error: 'Host busy: too many pending requests' }); continue; }
       queue.push(msg);
     }
-    // Stop pulling more stdin while the backlog is at the cap; pump() resumes us.
-    if (!paused && queue.length >= MAX_QUEUE) { paused = true; try { process.stdin.pause(); } catch {} }
+    // Stop pulling more stdin while total pending is at the cap; pump() resumes us.
+    if (!paused && queue.length + inflight >= MAX_QUEUE) { paused = true; try { process.stdin.pause(); } catch {} }
     pump();
   });
 

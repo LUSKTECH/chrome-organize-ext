@@ -35,6 +35,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false   # don't leave the token in .git/config for later steps
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
@@ -232,9 +234,9 @@ jobs:
           path: |
             dist/browser-organizer-*
             dist/SHA256SUMS-*.txt
-          # Warn (don't silently ignore) if a build produced no artifacts, so a
-          # broken build step surfaces instead of publishing a platform-less release.
-          if-no-files-found: warn
+          # Fail (don't silently ignore) if a build produced no artifacts, so a
+          # broken build step can't lead to publishing a platform-less release.
+          if-no-files-found: error
 
   release:
     needs: build
