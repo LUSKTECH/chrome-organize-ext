@@ -82,13 +82,25 @@ export function initSettingsView() {
     e.preventDefault();
     const form = e.target;
     try {
-      // Request every newly-needed optional origin in a single prompt rather than
-      // one dialog per feature. dead-link scan needs <all_urls>; the opt-in npm
-      // update check needs the registry host.
-      const neededOrigins = [];
-      if (form.deadLinkScan.checked) neededOrigins.push('<all_urls>');
-      if (form.checkHostUpdates.checked) neededOrigins.push('https://registry.npmjs.org/*');
-      if (neededOrigins.length) await chrome.permissions.request({ origins: neededOrigins });
+      // Features that need an optional host permission: dead-link scan (<all_urls>)
+      // and the opt-in npm update check (registry host). Prompt only for the ones
+      // not already granted, in a single dialog. If the user DECLINES, untick those
+      // features so we never persist an enabled setting whose permission is missing.
+      const permFeatures = [
+        ['deadLinkScan', '<all_urls>'],
+        ['checkHostUpdates', 'https://registry.npmjs.org/*'],
+      ].filter(([f]) => form[f].checked);
+      const toRequest = [];
+      for (const [feature, origin] of permFeatures) {
+        if (!(await chrome.permissions.contains({ origins: [origin] }))) toRequest.push([feature, origin]);
+      }
+      if (toRequest.length) {
+        const granted = await chrome.permissions.request({ origins: toRequest.map(([, o]) => o) });
+        if (!granted) {
+          for (const [feature] of toRequest) form[feature].checked = false;
+          setStatus('Permission declined — that feature stays off.');
+        }
+      }
       // Persist the API key (encrypted, device-local) only if the user typed one.
       // Trim FIRST: a blank/whitespace-only field means "keep the saved key" — it
       // must not fall through to setSecret('') which would clear the stored key.

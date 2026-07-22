@@ -42,13 +42,18 @@ test('OpenAI key: saving with a whitespace-only key preserves the saved key', as
   await panel.selectOption('#settingsForm [name=adapter]', 'openai');
   await expect(panel.locator('#openaiConfig')).toBeVisible();
 
-  // Save a real key first.
+  // Save a real key first, with a distinct model so we can confirm this first
+  // settings handler FULLY completed (secret + sync write) before the next save.
   await panel.fill('#openaiApiKey', 'keep-me-456');
   await panel.fill('#settingsForm [name=openaiBaseUrl]', `${server}/v1`);
+  await panel.fill('#settingsForm [name=openaiModel]', 'initial-model');
   await panel.click('#settingsForm button[type="submit"]');
   await expect.poll(async () =>
     panel.evaluate(async () => Boolean((await chrome.storage.local.get('secrets')).secrets?.openaiApiKey)),
   ).toBe(true);
+  await expect.poll(async () =>
+    panel.evaluate(async () => (await chrome.storage.sync.get('settings')).settings?.openaiModel),
+  ).toBe('initial-model'); // first save fully landed
   const before = await panel.evaluate(async () =>
     JSON.stringify((await chrome.storage.local.get('secrets')).secrets.openaiApiKey));
 
