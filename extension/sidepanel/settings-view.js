@@ -82,18 +82,31 @@ export function initSettingsView() {
     e.preventDefault();
     const form = e.target;
     try {
-      if (form.deadLinkScan.checked) {
-        await chrome.permissions.request({ origins: ['<all_urls>'] });
+      // Features that need an optional host permission: dead-link scan (<all_urls>)
+      // and the opt-in npm update check (registry host). Prompt only for the ones
+      // not already granted, in a single dialog. If the user DECLINES, untick those
+      // features so we never persist an enabled setting whose permission is missing.
+      const permFeatures = [
+        ['deadLinkScan', '<all_urls>'],
+        ['checkHostUpdates', 'https://registry.npmjs.org/*'],
+      ].filter(([f]) => form[f].checked);
+      const toRequest = [];
+      for (const [feature, origin] of permFeatures) {
+        if (!(await chrome.permissions.contains({ origins: [origin] }))) toRequest.push([feature, origin]);
       }
-      // The npm update check is a network call, so ask for its (narrow) host
-      // permission the moment the user opts in — declining just leaves it inert.
-      if (form.checkHostUpdates.checked) {
-        await chrome.permissions.request({ origins: ['https://registry.npmjs.org/*'] });
+      if (toRequest.length) {
+        const granted = await chrome.permissions.request({ origins: toRequest.map(([, o]) => o) });
+        if (!granted) {
+          for (const [feature] of toRequest) form[feature].checked = false;
+          setStatus('Permission declined — that feature stays off.');
+        }
       }
-      // Persist the API key (encrypted, device-local) only if the user typed one;
-      // an empty field means "keep the saved key". Never round-trips the stored key.
+      // Persist the API key (encrypted, device-local) only if the user typed one.
+      // Trim FIRST: a blank/whitespace-only field means "keep the saved key" — it
+      // must not fall through to setSecret('') which would clear the stored key.
       const apiKeyInput = $('openaiApiKey');
-      if (apiKeyInput.value) { await setSecret('openaiApiKey', apiKeyInput.value.trim()); apiKeyInput.value = ''; }
+      const apiKey = apiKeyInput.value.trim();
+      if (apiKey) { await setSecret('openaiApiKey', apiKey); apiKeyInput.value = ''; }
       await setSettings({
         adapter: form.adapter.value,
         openaiBaseUrl: form.openaiBaseUrl.value.trim(),

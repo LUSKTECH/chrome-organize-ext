@@ -4,7 +4,9 @@ import { $, send, setStatus } from './dom.js';
 
 export async function renderSessions() {
   const sessRes = await send({ cmd: 'listSessions' });
-  const sessions = (sessRes && sessRes.sessions) || [];
+  // Don't wipe the shown list on a dropped/failed reply (SW asleep) — surface it.
+  if (!sessRes || !sessRes.ok) { setStatus('Could not load sessions.'); return; }
+  const sessions = sessRes.sessions || [];
   const list = $('sessionList');
   list.textContent = '';
   for (const s of sessions) {
@@ -21,16 +23,20 @@ export async function renderSessions() {
     const renameBtn = document.createElement('button');
     renameBtn.type = 'button';
     renameBtn.textContent = 'Rename';
-    renameBtn.addEventListener('click', async () => {
+    renameBtn.addEventListener('click', () => {
+      if (!li.contains(label)) return; // already editing this row — ignore a repeat click
       const input = document.createElement('input');
       input.type = 'text';
       input.value = s.name;
+      let committed = false; // Enter fires commit, then blur fires again — run once
       const commit = async () => {
+        if (committed) return;
+        committed = true;
         const name = input.value.trim();
         if (name && name !== s.name) await send({ cmd: 'renameSession', id: s.sessionId, name });
         renderSessions();
       };
-      input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') commit(); });
+      input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); commit(); } });
       input.addEventListener('blur', commit);
       li.replaceChild(input, label);
       input.focus();
@@ -50,7 +56,8 @@ export async function renderSessions() {
 export function initSessionsView() {
   $('exportSessions').addEventListener('click', async () => {
     const sessRes = await send({ cmd: 'listSessions' });
-    const sessions = (sessRes && sessRes.sessions) || [];
+    if (!sessRes || !sessRes.ok) { setStatus('Could not load sessions.'); return; }
+    const sessions = sessRes.sessions || [];
     const blob = new Blob([JSON.stringify(sessions, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

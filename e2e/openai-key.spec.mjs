@@ -34,3 +34,39 @@ test('OpenAI backend: key entered in the UI (encrypted) is used by the host', as
     return r && r.health && r.health.adapter === 'openai' && r.health.ready === true;
   }, { timeout: 15000 }).toBeTruthy();
 });
+
+// Regression: a blank/whitespace-only key field means "keep the saved key". It
+// must NOT fall through to setSecret('') and silently clear the stored key.
+test('OpenAI key: saving with a whitespace-only key preserves the saved key', async ({ server, panel }) => {
+  await panel.click('#settings summary');
+  await panel.selectOption('#settingsForm [name=adapter]', 'openai');
+  await expect(panel.locator('#openaiConfig')).toBeVisible();
+
+  // Save a real key first, with a distinct model so we can confirm this first
+  // settings handler FULLY completed (secret + sync write) before the next save.
+  await panel.fill('#openaiApiKey', 'keep-me-456');
+  await panel.fill('#settingsForm [name=openaiBaseUrl]', `${server}/v1`);
+  await panel.fill('#settingsForm [name=openaiModel]', 'initial-model');
+  await panel.click('#settingsForm button[type="submit"]');
+  await expect.poll(async () =>
+    panel.evaluate(async () => Boolean((await chrome.storage.local.get('secrets')).secrets?.openaiApiKey)),
+  ).toBe(true);
+  await expect.poll(async () =>
+    panel.evaluate(async () => (await chrome.storage.sync.get('settings')).settings?.openaiModel),
+  ).toBe('initial-model'); // first save fully landed
+  const before = await panel.evaluate(async () =>
+    JSON.stringify((await chrome.storage.local.get('secrets')).secrets.openaiApiKey));
+
+  // Re-save with ONLY whitespace in the key field, plus a sentinel model so we can
+  // detect the save actually landed before asserting on the secret.
+  await panel.fill('#openaiApiKey', '   ');
+  await panel.fill('#settingsForm [name=openaiModel]', 'sentinel-model');
+  await panel.click('#settingsForm button[type="submit"]');
+  await expect.poll(async () =>
+    panel.evaluate(async () => (await chrome.storage.sync.get('settings')).settings?.openaiModel),
+  ).toBe('sentinel-model'); // the whitespace-key save completed
+
+  const after = await panel.evaluate(async () =>
+    JSON.stringify((await chrome.storage.local.get('secrets')).secrets?.openaiApiKey));
+  expect(after).toBe(before); // key preserved verbatim — not cleared by the blank field
+});

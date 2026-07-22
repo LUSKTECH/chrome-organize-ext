@@ -40,7 +40,10 @@ function drawTabs() {
 
 async function renderTabs() {
   const res = await send({ cmd: 'listOpenTabs', windowId: await currentScopeWindowId() });
-  openTabs = (res && res.tabs) || [];
+  // Don't blank the list on a dropped/failed reply (SW asleep) — surface it and
+  // keep whatever's shown, consistent with the closeTabsBtn handler.
+  if (!res || !res.ok) { setStatus(`Error: ${(res && res.error) || 'could not list tabs'}`); return; }
+  openTabs = res.tabs || [];
   tabSelection = new Set([...tabSelection].filter((id) => openTabs.some((t) => t.id === id)));
   drawTabs();
 }
