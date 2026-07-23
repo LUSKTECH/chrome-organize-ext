@@ -75,7 +75,23 @@ export function registryDeleteCommands(browsers) {
 export function runRegistryCommands(cmds, spawnFn = spawnSync) {
   for (const argv of cmds || []) {
     console.log('Running: ' + argv.join(' '));
-    spawnFn(argv[0], argv.slice(1), { stdio: 'inherit' });
+    // Capture output (rather than inherit) so we can tell an already-absent key
+    // apart from a real failure; echo it so the caller still sees what ran.
+    const r = spawnFn(argv[0], argv.slice(1), { encoding: 'utf8' });
+    const output = `${(r && r.stdout) || ''}${(r && r.stderr) || ''}`;
+    if (output.trim()) console.log(output.trim());
+    // A command failed if it couldn't spawn, exited non-zero, or was killed by a
+    // signal (status is null in that case, so check r.signal explicitly).
+    const failed = r && (r.error || r.signal || (typeof r.status === 'number' && r.status !== 0));
+    if (!failed) continue;
+    // `reg delete` of an already-absent key is expected during uninstall — tolerate
+    // ONLY that. Permission/execution/other delete failures still propagate.
+    if (argv[1] === 'delete' && /unable to find|cannot find|not find the specified/i.test(output)) {
+      console.warn('  (skipped: registry key already absent)');
+      continue;
+    }
+    const reason = (r.error && r.error.message) || (r.signal ? `killed by ${r.signal}` : `exit code ${r.status}`);
+    throw new Error(`Registry command failed (${argv.slice(0, 3).join(' ')}): ${reason}`);
   }
 }
 

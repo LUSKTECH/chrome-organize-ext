@@ -70,7 +70,10 @@ export async function reverseEntry(entry, chromeApi = chrome, idRemap = new Map(
       return;
     case 'deleteBookmark': {
       const { parentId, index, title, url } = entry.reverse;
-      await chromeApi.bookmarks.create({ parentId, index, title, url });
+      // If the bookmark's folder was removed and recreated earlier this batch,
+      // its id changed — recreate the bookmark in the new folder.
+      const target = idRemap.get(parentId) ?? parentId;
+      await chromeApi.bookmarks.create({ parentId: target, index, title, url });
       return;
     }
     case 'moveBookmark': {
@@ -83,8 +86,11 @@ export async function reverseEntry(entry, chromeApi = chrome, idRemap = new Map(
     case 'removeFolder': {
       // reverse null means the removal was skipped (root/non-empty) → nothing to undo.
       if (!entry.reverse) return;
-      const created = await chromeApi.bookmarks.create({ parentId: entry.reverse.parentId, index: entry.reverse.index, title: entry.reverse.title });
-      // Record old→new id so a moveBookmark reversed later this batch lands here.
+      // If this folder's OWN parent was also removed and recreated earlier this
+      // batch (nested folders), create it under the recreated parent.
+      const target = idRemap.get(entry.reverse.parentId) ?? entry.reverse.parentId;
+      const created = await chromeApi.bookmarks.create({ parentId: target, index: entry.reverse.index, title: entry.reverse.title });
+      // Record old→new id so a moveBookmark/child reversed later this batch lands here.
       if (entry.reverse.folderId && created && created.id) idRemap.set(entry.reverse.folderId, created.id);
       return;
     }

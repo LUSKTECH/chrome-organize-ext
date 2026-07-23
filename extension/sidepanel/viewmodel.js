@@ -195,10 +195,14 @@ export function healthMessage(health, extensionId = '<your-extension-id>') {
   // connection failures ("host not found/disconnected") mean the helper isn't
   // registered; anything else from a reachable helper means the CLI itself
   // failed to start.
-  // Match "native host"/"native messaging host" specifically, not a bare "host":
-  // a reachable helper whose CLI errors with the word host (e.g. ollama
-  // "could not connect to ollama host") must NOT be misread as "helper not registered".
-  const hostMissing = err === '' || /not found|disconnected|not allowed|forbidden|no such|specified native|native host/i.test(err);
+  // Only a native-MESSAGING failure means the helper isn't registered. Every such
+  // error that reaches here carries native-host context — Chrome's lastError
+  // ("Specified native messaging host not found", "Access to the specified native
+  // messaging host is forbidden", "Native host has exited") and the client's own
+  // fallbacks ("Native host disconnected/timed out"). A reachable helper whose CLI
+  // errors (e.g. "spawn claude ENOENT", "command not found", "403 forbidden") never
+  // does, so those correctly fall through to the "CLI didn't start" guidance below.
+  const hostMissing = err === '' || /native (messaging )?host|specified native/i.test(err);
   if (hostMissing) {
     return {
       ok: false,

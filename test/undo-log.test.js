@@ -113,3 +113,20 @@ test('reverseEntry remaps a bookmark move into a folder recreated in the same ba
     ['move', '9', { parentId: 'newF', index: 0 }], // oldF remapped to the recreated folder
   ]);
 });
+
+test('reverseEntry remaps a nested removed folder (and its bookmark) into the recreated parent', async () => {
+  let n = 0;
+  const created = [];
+  const chrome = {
+    bookmarks: { async create(x) { const id = `new${++n}`; created.push({ parentId: x.parentId, id }); return { id, ...x }; } },
+  };
+  const idRemap = new Map();
+  // Outer folder A and inner folder B (parent A) were both removed; reverse recreates
+  // A first (new id), then B must land under the RECREATED A, then a bookmark under B.
+  await reverseEntry({ action: 'removeFolder', reverse: { folderId: 'A', parentId: '2', index: 0, title: 'Outer' } }, chrome, idRemap);
+  await reverseEntry({ action: 'removeFolder', reverse: { folderId: 'B', parentId: 'A', index: 0, title: 'Inner' } }, chrome, idRemap);
+  await reverseEntry({ action: 'deleteBookmark', reverse: { parentId: 'B', index: 0, title: 'Doc', url: 'https://d' } }, chrome, idRemap);
+  assert.equal(created[0].parentId, '2');    // outer recreated under root
+  assert.equal(created[1].parentId, 'new1'); // inner recreated under the recreated outer (A → new1)
+  assert.equal(created[2].parentId, 'new2'); // bookmark recreated under the recreated inner (B → new2)
+});

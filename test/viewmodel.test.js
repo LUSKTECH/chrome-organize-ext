@@ -153,9 +153,21 @@ test('formatElapsed renders m:ss', () => {
 
 test('healthMessage reports connected vs not', () => {
   assert.deepEqual(healthMessage({ ready: true, version: '2.1.0' }), { ok: true, text: 'Claude CLI connected (2.1.0)' });
-  const bad = healthMessage({ ready: false, error: 'not found' });
+  // A genuine native-messaging failure → "reinstall the helper" guidance.
+  const bad = healthMessage({ ready: false, error: 'Specified native messaging host not found' });
   assert.equal(bad.ok, false);
   assert.match(bad.text, /browser-organizer-host/);
+});
+
+test('healthMessage: a reachable helper whose CLI failed points at the CLI, not the host', () => {
+  // "not found"/"forbidden" from a running helper (its CLI) must NOT be misread as
+  // "helper not registered" — only native-messaging errors mean that.
+  for (const error of ['spawn claude ENOENT', 'claude: command not found', 'CLI exited 1: 403 forbidden']) {
+    const m = healthMessage({ ready: false, error });
+    assert.equal(m.ok, false);
+    assert.doesNotMatch(m.text, /browser-organizer-host install/, `"${error}" should give CLI guidance`);
+    assert.match(m.text, /command is installed/); // "make sure the ... command is installed"
+  }
 });
 
 test('healthMessage appends the host bridge version when present', () => {
