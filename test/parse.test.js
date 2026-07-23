@@ -97,3 +97,10 @@ test('parseJsonBlock still finds JSON after some leading prose/braces', () => {
   const out = parseJsonBlock('note: {partial and prose { here\nActual answer: {"groups":[{"name":"A","color":"blue","tabIds":[1,2]}]}');
   assert.deepEqual(out.groups[0].tabIds, [1, 2]);
 });
+
+test('parseJsonBlock preserves bracketed substrings in values, still strips real ANSI', () => {
+  // Old stripAnsi ate a bare "[" + digits + letter anywhere → corrupted values.
+  assert.deepEqual(parseJsonBlock('{"name":"Docs [v2]","g":"[Draft] Work"}'), { name: 'Docs [v2]', g: '[Draft] Work' });
+  // A genuine ANSI CSI sequence (ESC-prefixed) around the JSON is still removed.
+  assert.deepEqual(parseJsonBlock('\x1b[32m{"a":1}\x1b[0m'), { a: 1 });
+});

@@ -1,8 +1,9 @@
 // Strip ANSI/CSI escape sequences (colors, cursor moves) some CLIs emit even
 // when piped — their '[' would otherwise fool bracket extraction.
 function stripAnsi(s) {
+  // Only real ANSI CSI sequences start with ESC (\x1b); the old bare-[ pattern corrupted JSON values like "Docs [v2]".
   // eslint-disable-next-line no-control-regex
-  return s.replace(/\[[0-9;?]*[a-zA-Z]/g, '');
+  return s.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, '');
 }
 
 // Extract the *balanced* {…}/[…] block that starts at index `start`, respecting

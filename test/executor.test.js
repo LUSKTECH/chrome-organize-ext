@@ -59,7 +59,7 @@ test('removeFolder removes an empty non-root folder and reverses by recreating i
   const item = { action: 'removeFolder', data: { folderId: f.id, parentId: '2', index: 0, title: 'Empty' } };
   const entry = await applyItem(item, { chrome });
   assert.ok(chrome._removed.includes(`bm:${f.id}`));
-  assert.deepEqual(entry.reverse, { parentId: '2', index: 0, title: 'Empty' });
+  assert.deepEqual(entry.reverse, { folderId: f.id, parentId: '2', index: 0, title: 'Empty' });
 });
 
 test('removeFolder refuses a root folder (no-op, skipped)', async () => {

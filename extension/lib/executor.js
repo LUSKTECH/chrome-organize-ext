@@ -91,7 +91,9 @@ async function applyItemInner(item, c) {
       const kids = await c.bookmarks.getChildren(folderId).catch(() => null);
       if (!kids || kids.length) return { undoId: undoId(), ts: Date.now(), action: 'removeFolder', reverse: null, skipped: true };
       await c.bookmarks.remove(folderId);
-      return { undoId: undoId(), ts: Date.now(), action: 'removeFolder', reverse: { parentId, index, title } };
+      // Keep folderId so undo can remap it: recreating the folder yields a NEW id,
+      // and any moveBookmark that pointed here must be redirected to that new id.
+      return { undoId: undoId(), ts: Date.now(), action: 'removeFolder', reverse: { folderId, parentId, index, title } };
     }
     case 'discardTab': {
       await c.tabs.discard(item.data.tabId);

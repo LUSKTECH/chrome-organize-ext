@@ -49,7 +49,11 @@ export async function restoreUndoEntries(entries) {
   });
 }
 
-export async function reverseEntry(entry, chromeApi = chrome) {
+// `idRemap` maps an old (removed) folder id to the id of the folder recreated
+// while undoing its removeFolder entry. Callers undoing a batch share one map and
+// process entries in REVERSE apply order, so a folder is recreated before the
+// moveBookmark that needs it is reversed.
+export async function reverseEntry(entry, chromeApi = chrome, idRemap = new Map()) {
   switch (entry.action) {
     case 'closeTab': {
       const { url, windowId, index, pinned, savedBookmarkId } = entry.reverse;
@@ -69,13 +73,21 @@ export async function reverseEntry(entry, chromeApi = chrome) {
       await chromeApi.bookmarks.create({ parentId, index, title, url });
       return;
     }
-    case 'moveBookmark':
-      await chromeApi.bookmarks.move(entry.reverse.bookmarkId, { parentId: entry.reverse.parentId, index: entry.reverse.index });
+    case 'moveBookmark': {
+      // If the bookmark's original folder was removed in the same batch and has
+      // since been recreated, its id changed — move to the recreated folder.
+      const parentId = idRemap.get(entry.reverse.parentId) ?? entry.reverse.parentId;
+      await chromeApi.bookmarks.move(entry.reverse.bookmarkId, { parentId, index: entry.reverse.index });
       return;
-    case 'removeFolder':
+    }
+    case 'removeFolder': {
       // reverse null means the removal was skipped (root/non-empty) → nothing to undo.
-      if (entry.reverse) await chromeApi.bookmarks.create({ parentId: entry.reverse.parentId, index: entry.reverse.index, title: entry.reverse.title });
+      if (!entry.reverse) return;
+      const created = await chromeApi.bookmarks.create({ parentId: entry.reverse.parentId, index: entry.reverse.index, title: entry.reverse.title });
+      // Record old→new id so a moveBookmark reversed later this batch lands here.
+      if (entry.reverse.folderId && created && created.id) idRemap.set(entry.reverse.folderId, created.id);
       return;
+    }
     case 'discardTab':
       return; // discard is transparent; the tab reloads on next focus
     default:

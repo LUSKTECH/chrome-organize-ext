@@ -63,7 +63,7 @@ function runMessaging() {
 // host against this very executable. Detect SEA so the manifest points at the
 // binary (process.execPath IS the binary) rather than at `node`.
 async function runInstaller(mode, argv) {
-  const { install, uninstall } = await import('./installer.js');
+  const { install, uninstall, runRegistryCommands } = await import('./installer.js');
   let isSea = false;
   try { const sea = await import('node:sea'); isSea = sea.isSea(); } catch { /* not a SEA build */ }
   const rest = argv.filter((a) => !a.startsWith('--'));
@@ -75,9 +75,15 @@ async function runInstaller(mode, argv) {
   const opts = copyTo ? { browsers, copyTo } : { browsers };
   if (mode === 'uninstall') {
     const removed = uninstall(opts);
+    // On Windows the browser finds native hosts via the registry, so the
+    // manifest file alone is not enough — deregister the keys too. No-op off
+    // win32. This is the SEA/.exe (Inno Setup) install path; cli.js does the
+    // same for the npm/npx path.
+    runRegistryCommands(removed._registryCommands);
     process.stdout.write((removed.length ? 'Removed:\n' + removed.map((f) => '  ' + f).join('\n') : 'Nothing to remove.') + '\n');
   } else {
     const written = install(opts);
+    runRegistryCommands(written._registryCommands); // win32: register the host in the registry (no-op elsewhere)
     process.stdout.write('Installed Browser Organizer host:\n' + written.map((f) => '  ' + f).join('\n') + '\n');
   }
 }

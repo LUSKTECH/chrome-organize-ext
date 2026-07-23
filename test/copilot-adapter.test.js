@@ -30,3 +30,10 @@ test('resolveCommand defaults to copilot and honors the env override', () => {
   assert.equal(resolveCommand(), '/usr/local/bin/copilot');
   if (prev === undefined) delete process.env.BROWSER_ORGANIZER_COPILOT_CMD; else process.env.BROWSER_ORGANIZER_COPILOT_CMD = prev;
 });
+
+test('extra flags go before -p so the prompt stays the -p value (no splice)', async () => {
+  let seen = null;
+  const spawnFn = makeFakeSpawn((s, c, args) => { seen = args; return { stdout: '{}' }; });
+  await copilotAdapter.run('PROMPT', { spawnFn, cli: { extraArgs: ['--model', 'gpt'] } });
+  assert.deepEqual(seen, ['-s', '--no-ask-user', '--model', 'gpt', '-p', 'PROMPT']);
+});

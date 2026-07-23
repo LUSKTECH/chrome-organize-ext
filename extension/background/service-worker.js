@@ -316,8 +316,13 @@ async function handleUndo(m) {
   // double-reverse the same entry; restore only the ones that failed to reverse.
   const chosen = await claimUndoEntries(m.undoIds);
   const failed = [];
-  for (const entry of chosen) {
-    try { await reverseEntry(entry, chrome); } catch { failed.push(entry); }
+  // Undo in REVERSE apply order so later ops are reversed first — e.g. a folder
+  // removed after its bookmarks moved out is recreated before those moves are
+  // reversed. A shared idRemap redirects those moves to the recreated folder
+  // (whose id changed on re-create).
+  const idRemap = new Map();
+  for (const entry of [...chosen].reverse()) {
+    try { await reverseEntry(entry, chrome, idRemap); } catch { failed.push(entry); }
   }
   await restoreUndoEntries(failed);
   return { ok: true, undone: chosen.length - failed.length, failed: failed.length };

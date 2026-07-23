@@ -253,3 +253,23 @@ test('toMarkdown renders groups with member links and includes non-group items',
   assert.match(md, /\[Old tab\]\(https:\/\/old\.com\)/);   // non-group item included
   assert.match(md, /\[Dead bookmark\]\(https:\/\/dead\.com\)/);
 });
+
+test('digestText counts moveBookmark and removeFolder (organize auto-mode notifications)', () => {
+  const items = [{ action: 'moveBookmark', data: {} }, { action: 'moveBookmark', data: {} }, { action: 'removeFolder', data: {} }];
+  const t = digestText(items);
+  assert.match(t, /2 to sort/);
+  assert.match(t, /1 empty folder/);
+  assert.doesNotMatch(t, /^ +—/); // no leading empty segment before the dash
+});
+
+test('healthMessage: a reachable CLI error containing "host" is not misread as an unregistered helper', () => {
+  const m = healthMessage({ ready: false, error: 'could not connect to ollama host', adapter: 'ollama' }, 'abc');
+  assert.equal(m.ok, false);
+  assert.doesNotMatch(m.text, /install chrome,edge/); // not the "register the helper" guidance
+});
+
+test('healthMessage: a real native-messaging "native host" error still gives the install-host guidance', () => {
+  const m = healthMessage({ ready: false, error: 'Native host has exited.' }, 'abc');
+  assert.equal(m.ok, false);
+  assert.match(m.text, /install chrome,edge/);
+});

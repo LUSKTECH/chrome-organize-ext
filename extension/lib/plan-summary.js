@@ -15,5 +15,10 @@ export function digestText(items) {
   if (c.groupTabs) parts.push(`${c.groupTabs} group${c.groupTabs > 1 ? 's' : ''}`);
   if (c.createBookmark) parts.push(`${c.createBookmark} to bookmark`);
   if (c.deleteBookmark) parts.push(`${c.deleteBookmark} bookmarks to clean`);
+  if (c.moveBookmark) parts.push(`${c.moveBookmark} to sort`);
+  if (c.removeFolder) parts.push(`${c.removeFolder} empty folder${c.removeFolder > 1 ? 's' : ''}`);
+  // Defensive: never emit a leading " — open to review." if some future action
+  // type isn't itemized above.
+  if (!parts.length) parts.push(`${items.length} change${items.length > 1 ? 's' : ''}`);
   return `${parts.join(', ')} — open to review.`;
 }

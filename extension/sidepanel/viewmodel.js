@@ -195,7 +195,10 @@ export function healthMessage(health, extensionId = '<your-extension-id>') {
   // connection failures ("host not found/disconnected") mean the helper isn't
   // registered; anything else from a reachable helper means the CLI itself
   // failed to start.
-  const hostMissing = err === '' || /not found|disconnected|not allowed|forbidden|no such|specified native|host/i.test(err);
+  // Match "native host"/"native messaging host" specifically, not a bare "host":
+  // a reachable helper whose CLI errors with the word host (e.g. ollama
+  // "could not connect to ollama host") must NOT be misread as "helper not registered".
+  const hostMissing = err === '' || /not found|disconnected|not allowed|forbidden|no such|specified native|native host/i.test(err);
   if (hostMissing) {
     return {
       ok: false,
