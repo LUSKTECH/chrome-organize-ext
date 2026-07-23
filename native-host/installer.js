@@ -75,14 +75,22 @@ export function registryDeleteCommands(browsers) {
 export function runRegistryCommands(cmds, spawnFn = spawnSync) {
   for (const argv of cmds || []) {
     console.log('Running: ' + argv.join(' '));
-    const r = spawnFn(argv[0], argv.slice(1), { stdio: 'inherit' });
-    // Propagate real failures so install doesn't claim success when the host was
-    // never registered (e.g. reg add denied). `reg delete` of an already-absent
-    // key is expected during uninstall, so tolerate that one.
-    const failed = r && (r.error || (typeof r.status === 'number' && r.status !== 0));
+    // Capture output (rather than inherit) so we can tell an already-absent key
+    // apart from a real failure; echo it so the caller still sees what ran.
+    const r = spawnFn(argv[0], argv.slice(1), { encoding: 'utf8' });
+    const output = `${(r && r.stdout) || ''}${(r && r.stderr) || ''}`;
+    if (output.trim()) console.log(output.trim());
+    // A command failed if it couldn't spawn, exited non-zero, or was killed by a
+    // signal (status is null in that case, so check r.signal explicitly).
+    const failed = r && (r.error || r.signal || (typeof r.status === 'number' && r.status !== 0));
     if (!failed) continue;
-    if (argv[1] === 'delete') { console.warn(`  (skipped: ${argv[2] || 'key'} not present)`); continue; }
-    const reason = (r.error && r.error.message) || `exit code ${r.status}`;
+    // `reg delete` of an already-absent key is expected during uninstall — tolerate
+    // ONLY that. Permission/execution/other delete failures still propagate.
+    if (argv[1] === 'delete' && /unable to find|cannot find|not find the specified/i.test(output)) {
+      console.warn('  (skipped: registry key already absent)');
+      continue;
+    }
+    const reason = (r.error && r.error.message) || (r.signal ? `killed by ${r.signal}` : `exit code ${r.status}`);
     throw new Error(`Registry command failed (${argv.slice(0, 3).join(' ')}): ${reason}`);
   }
 }

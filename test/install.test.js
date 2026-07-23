@@ -156,10 +156,10 @@ test('runRegistryCommands runs each argv via the injected spawn (no shell) and n
   assert.equal(c2.length, 0);
 });
 
-test('runRegistryCommands throws on a failed reg add but tolerates a missing key on delete', () => {
-  // reg add failing (denied / non-zero) must NOT be silently reported as success.
+test('runRegistryCommands throws on a failed reg add (no false success)', () => {
+  // Non-zero exit (denied / other) must NOT be silently reported as success.
   assert.throws(
-    () => runRegistryCommands([['reg', 'add', 'HKCU\\...\\host', '/f']], () => ({ status: 1 })),
+    () => runRegistryCommands([['reg', 'add', 'HKCU\\...\\host', '/f']], () => ({ status: 1, stderr: 'ERROR: Access is denied.' })),
     /Registry command failed .*reg add/,
   );
   // A spawn error (e.g. reg.exe missing) also propagates.
@@ -167,8 +167,27 @@ test('runRegistryCommands throws on a failed reg add but tolerates a missing key
     () => runRegistryCommands([['reg', 'add', 'HKCU\\...\\host', '/f']], () => ({ error: new Error('ENOENT') })),
     /Registry command failed/,
   );
-  // reg delete of an already-absent key during uninstall is expected → no throw.
-  assert.doesNotThrow(() => runRegistryCommands([['reg', 'delete', 'HKCU\\...\\host', '/f']], () => ({ status: 1 })));
+});
+
+test('runRegistryCommands treats a signal-killed command as a failure', () => {
+  // spawnSync returns status:null + a signal when the process is killed.
+  assert.throws(
+    () => runRegistryCommands([['reg', 'add', 'HKCU\\...\\host', '/f']], () => ({ status: null, signal: 'SIGKILL' })),
+    /killed by SIGKILL/,
+  );
+});
+
+test('runRegistryCommands tolerates an already-absent key on delete, but not other delete failures', () => {
+  // Missing key is expected during uninstall → skipped, no throw.
+  assert.doesNotThrow(() => runRegistryCommands(
+    [['reg', 'delete', 'HKCU\\...\\host', '/f']],
+    () => ({ status: 1, stderr: 'ERROR: The system was unable to find the specified registry key or value.' }),
+  ));
+  // A different delete failure (e.g. permission denied) must still propagate.
+  assert.throws(
+    () => runRegistryCommands([['reg', 'delete', 'HKCU\\...\\host', '/f']], () => ({ status: 1, stderr: 'ERROR: Access is denied.' })),
+    /Registry command failed .*reg delete/,
+  );
 });
 
 test('uninstall of one browser keeps the shared host home for the other', () => {
